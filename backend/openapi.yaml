@@ -1,0 +1,1767 @@
+openapi: 3.1.0
+info:
+  title: Plexus API
+  description: Enterprise project management API
+  version: 1.0.0
+  contact:
+    name: Plexus
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+  - url: https://api.plexus.app/api/v1
+    description: Production
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    TokenPair:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+      required: [access_token, refresh_token, expires_in]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [admin, user]
+        created_at:
+          type: string
+          format: date-time
+      required: [id, email, display_name, role, created_at]
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        logo_url:
+          type: string
+          nullable: true
+        plan:
+          type: string
+          enum: [free, pro, enterprise]
+        my_role:
+          type: string
+          enum: [owner, admin, member, guest]
+      required: [id, slug, name, plan]
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          example: PLX
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        icon_url:
+          type: string
+          nullable: true
+        lead_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required: [id, org_id, key, name, created_at]
+
+    Status:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+        category:
+          type: string
+          enum: [todo, in_progress, done]
+        position:
+          type: integer
+      required: [id, name, color, category, position]
+
+    IssueType:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+        icon_url:
+          type: string
+          nullable: true
+      required: [id, name, color]
+
+    Label:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+      required: [id, name, color]
+
+    Issue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        priority:
+          type: string
+          enum: [urgent, high, medium, low, no_priority]
+        status_id:
+          type: string
+          format: uuid
+        type_id:
+          type: string
+          format: uuid
+        assignee_id:
+          type: string
+          format: uuid
+          nullable: true
+        reporter_id:
+          type: string
+          format: uuid
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+        sprint_id:
+          type: string
+          format: uuid
+          nullable: true
+        story_points:
+          type: number
+          nullable: true
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        position:
+          type: number
+        custom_fields:
+          type: object
+          additionalProperties:
+            type: string
+            nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, number, title, priority, status_id, type_id, reporter_id, position, created_at, updated_at]
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        body:
+          type: string
+        author_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, body, author_id, created_at, updated_at]
+
+    Sprint:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        goal:
+          type: string
+          nullable: true
+        state:
+          type: string
+          enum: [active, closed, future]
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required: [id, name, state, created_at]
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [assigned, mentioned, commented, status_changed]
+        title:
+          type: string
+        body:
+          type: string
+          nullable: true
+        read:
+          type: boolean
+        issue_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required: [id, type, title, read, created_at]
+
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mime_type:
+          type: string
+        size:
+          type: integer
+        uploader_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+      required: [id, filename, mime_type, size, uploader_id, created_at]
+
+    OrgMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        email:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [owner, admin, member, guest]
+        joined_at:
+          type: string
+          format: date-time
+      required: [id, display_name, email, role, joined_at]
+
+    IssueHistory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        field:
+          type: string
+        old_value:
+          type: string
+          nullable: true
+        new_value:
+          type: string
+          nullable: true
+        actor_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+      required: [id, field, actor_id, created_at]
+
+    CustomField:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key:
+          type: string
+        type:
+          type: string
+          enum: [text, number, date, select, boolean]
+        required:
+          type: boolean
+        options:
+          type: array
+          items:
+            type: string
+        position:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+      required: [id, name, key, type, required, position, created_at]
+
+    ProjectMember:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        email:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [admin, member, viewer]
+        joined_at:
+          type: string
+          format: date-time
+      required: [user_id, display_name, email, role, joined_at]
+
+    DetailedHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        service:
+          type: string
+        checks:
+          type: object
+          properties:
+            database:
+              type: string
+            redis:
+              type: string
+      required: [status, service, checks]
+
+  parameters:
+    orgSlug:
+      name: orgSlug
+      in: path
+      required: true
+      schema:
+        type: string
+    projectKey:
+      name: projectKey
+      in: path
+      required: true
+      schema:
+        type: string
+    issueNumber:
+      name: issueNumber
+      in: path
+      required: true
+      schema:
+        type: integer
+    statusID:
+      name: statusID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    sprintID:
+      name: sprintID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    commentID:
+      name: commentID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    attachmentID:
+      name: attachmentID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: health
+      security: []
+      servers:
+        - url: http://localhost:8080
+          description: Local development (no /api/v1 prefix)
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  service:
+                    type: string
+
+  /health/detailed:
+    get:
+      tags: [Health]
+      operationId: detailedHealth
+      security: []
+      servers:
+        - url: http://localhost:8080
+          description: Local development (no /api/v1 prefix)
+      responses:
+        '200':
+          description: All dependencies healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedHealth'
+        '503':
+          description: One or more dependencies unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedHealth'
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                display_name:
+                  type: string
+              required: [email, password, display_name]
+      responses:
+        '201':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+              required: [refresh_token]
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      responses:
+        '204':
+          description: Logged out
+
+  /auth/oidc/login:
+    get:
+      tags: [Auth]
+      operationId: oidcLogin
+      security: []
+      description: Redirects to the configured OIDC provider authorization endpoint.
+      responses:
+        '302':
+          description: Redirect to OIDC provider
+        '501':
+          description: OIDC is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/oidc/callback:
+    get:
+      tags: [Auth]
+      operationId: oidcCallback
+      security: []
+      description: OIDC callback; provisions user on first login and redirects to the frontend with tokens.
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to FRONTEND_URL/auth/callback with access_token and refresh_token query params
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: OIDC is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /me:
+    get:
+      tags: [Users]
+      operationId: getMe
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    patch:
+      tags: [Users]
+      operationId: updateMe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                avatar_url:
+                  type: string
+      responses:
+        '204':
+          description: Updated
+
+  /orgs:
+    post:
+      tags: [Organizations]
+      operationId: createOrg
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+              required: [name]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+    get:
+      tags: [Organizations]
+      operationId: listMyOrgs
+      responses:
+        '200':
+          description: List of organizations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+
+  /orgs/{orgSlug}/projects:
+    post:
+      tags: [Projects]
+      operationId: createProject
+      parameters:
+        - name: orgSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                key:
+                  type: string
+                description:
+                  type: string
+              required: [name]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    get:
+      tags: [Projects]
+      operationId: listProjects
+      parameters:
+        - name: orgSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues:
+    get:
+      tags: [Issues]
+      operationId: listIssues
+      parameters:
+        - name: orgSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: projectKey
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status_id
+          in: query
+          schema:
+            type: string
+        - name: assignee_id
+          in: query
+          schema:
+            type: string
+        - name: sprint_id
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of issues
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Issue'
+    post:
+      tags: [Issues]
+      operationId: createIssue
+      parameters:
+        - name: orgSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: projectKey
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                type_id:
+                  type: string
+                  format: uuid
+                status_id:
+                  type: string
+                  format: uuid
+                priority:
+                  type: string
+                  enum: [urgent, high, medium, low, no_priority]
+                description:
+                  type: string
+                assignee_id:
+                  type: string
+                  format: uuid
+                sprint_id:
+                  type: string
+                  format: uuid
+                story_points:
+                  type: number
+                due_date:
+                  type: string
+                  format: date-time
+                label_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+              required: [title, type_id]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  number:
+                    type: integer
+
+  /orgs/{orgSlug}:
+    get:
+      tags: [Organizations]
+      operationId: getOrg
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      responses:
+        '200':
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+    patch:
+      tags: [Organizations]
+      operationId: updateOrg
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                logo_url:
+                  type: string
+      responses:
+        '204':
+          description: Updated
+
+  /orgs/{orgSlug}/members:
+    get:
+      tags: [Organizations]
+      operationId: listOrgMembers
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      responses:
+        '200':
+          description: Org members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrgMember'
+
+  /orgs/{orgSlug}/members/invite:
+    post:
+      tags: [Organizations]
+      operationId: inviteMember
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum: [owner, admin, member, guest]
+              required: [email]
+      responses:
+        '204':
+          description: Invited
+
+  /orgs/{orgSlug}/members/{userID}:
+    delete:
+      tags: [Organizations]
+      operationId: removeMember
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Removed
+
+  /orgs/{orgSlug}/search:
+    get:
+      tags: [Search]
+      operationId: search
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+
+  /orgs/{orgSlug}/projects/{projectKey}:
+    get:
+      tags: [Projects]
+      operationId: getProject
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    patch:
+      tags: [Projects]
+      operationId: updateProject
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                icon_url:
+                  type: string
+                lead_id:
+                  type: string
+                  format: uuid
+      responses:
+        '204':
+          description: Updated
+    delete:
+      tags: [Projects]
+      operationId: deleteProject
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '204':
+          description: Deleted
+
+  /orgs/{orgSlug}/projects/{projectKey}/members:
+    get:
+      tags: [Projects]
+      operationId: listProjectMembers
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Project members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectMember'
+    post:
+      tags: [Projects]
+      operationId: addProjectMember
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                role:
+                  type: string
+                  enum: [admin, member, viewer]
+              required: [user_id]
+      responses:
+        '204':
+          description: Member added or updated
+
+  /orgs/{orgSlug}/projects/{projectKey}/members/{userID}:
+    delete:
+      tags: [Projects]
+      operationId: removeProjectMember
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member removed
+
+  /orgs/{orgSlug}/projects/{projectKey}/statuses:
+    get:
+      tags: [Statuses]
+      operationId: listStatuses
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Statuses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Status'
+    post:
+      tags: [Statuses]
+      operationId: createStatus
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+                category:
+                  type: string
+                position:
+                  type: integer
+              required: [name]
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/statuses/{statusID}:
+    patch:
+      tags: [Statuses]
+      operationId: updateStatus
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/statusID'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+                category:
+                  type: string
+                position:
+                  type: integer
+      responses:
+        '204':
+          description: Updated
+    delete:
+      tags: [Statuses]
+      operationId: deleteStatus
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/statusID'
+      responses:
+        '204':
+          description: Deleted
+
+  /orgs/{orgSlug}/projects/{projectKey}/issue-types:
+    get:
+      tags: [IssueTypes]
+      operationId: listIssueTypes
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Issue types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IssueType'
+    post:
+      tags: [IssueTypes]
+      operationId: createIssueType
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+                icon_url:
+                  type: string
+              required: [name]
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/labels:
+    get:
+      tags: [Labels]
+      operationId: listLabels
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Labels
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Label'
+    post:
+      tags: [Labels]
+      operationId: createLabel
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+              required: [name]
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/custom-fields:
+    get:
+      tags: [CustomFields]
+      operationId: listCustomFields
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Custom field definitions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CustomField'
+    post:
+      tags: [CustomFields]
+      operationId: createCustomField
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                key:
+                  type: string
+                type:
+                  type: string
+                  enum: [text, number, date, select, boolean]
+                required:
+                  type: boolean
+                options:
+                  type: array
+                  items:
+                    type: string
+                position:
+                  type: integer
+              required: [name]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+
+  /orgs/{orgSlug}/projects/{projectKey}/sprints:
+    get:
+      tags: [Sprints]
+      operationId: listSprints
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Sprints
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sprint'
+    post:
+      tags: [Sprints]
+      operationId: createSprint
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                goal:
+                  type: string
+                start_date:
+                  type: string
+                  format: date-time
+                end_date:
+                  type: string
+                  format: date-time
+              required: [name]
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/sprints/{sprintID}:
+    patch:
+      tags: [Sprints]
+      operationId: updateSprint
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/sprintID'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                goal:
+                  type: string
+                start_date:
+                  type: string
+                  format: date-time
+                end_date:
+                  type: string
+                  format: date-time
+      responses:
+        '204':
+          description: Updated
+
+  /orgs/{orgSlug}/projects/{projectKey}/sprints/{sprintID}/start:
+    post:
+      tags: [Sprints]
+      operationId: startSprint
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/sprintID'
+      responses:
+        '204':
+          description: Started
+
+  /orgs/{orgSlug}/projects/{projectKey}/sprints/{sprintID}/complete:
+    post:
+      tags: [Sprints]
+      operationId: completeSprint
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/sprintID'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                move_unfinished_to_sprint_id:
+                  type: string
+                  format: uuid
+      responses:
+        '204':
+          description: Completed
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}:
+    get:
+      tags: [Issues]
+      operationId: getIssue
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      responses:
+        '200':
+          description: Issue details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+    patch:
+      tags: [Issues]
+      operationId: updateIssue
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                status_id:
+                  type: string
+                  format: uuid
+                type_id:
+                  type: string
+                  format: uuid
+                priority:
+                  type: string
+                assignee_id:
+                  type: string
+                  format: uuid
+                sprint_id:
+                  type: string
+                  format: uuid
+                story_points:
+                  type: number
+                due_date:
+                  type: string
+                  format: date-time
+                custom_fields:
+                  type: object
+                  additionalProperties:
+                    type: string
+                    nullable: true
+      responses:
+        '204':
+          description: Updated
+    delete:
+      tags: [Issues]
+      operationId: deleteIssue
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      responses:
+        '204':
+          description: Deleted
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}/move:
+    post:
+      tags: [Issues]
+      operationId: moveIssue
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status_id:
+                  type: string
+                  format: uuid
+                position:
+                  type: number
+                sprint_id:
+                  type: string
+                  format: uuid
+      responses:
+        '204':
+          description: Moved
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}/comments:
+    get:
+      tags: [Comments]
+      operationId: listComments
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      responses:
+        '200':
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+    post:
+      tags: [Comments]
+      operationId: createComment
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+              required: [body]
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}/comments/{commentID}:
+    patch:
+      tags: [Comments]
+      operationId: updateComment
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+        - $ref: '#/components/parameters/commentID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+              required: [body]
+      responses:
+        '204':
+          description: Updated
+    delete:
+      tags: [Comments]
+      operationId: deleteComment
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+        - $ref: '#/components/parameters/commentID'
+      responses:
+        '204':
+          description: Deleted
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}/attachments:
+    get:
+      tags: [Attachments]
+      operationId: listAttachments
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      responses:
+        '200':
+          description: Attachments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Attachment'
+    post:
+      tags: [Attachments]
+      operationId: createAttachment
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filename:
+                  type: string
+                mime_type:
+                  type: string
+                size:
+                  type: integer
+                storage_key:
+                  type: string
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}/attachments/upload-url:
+    post:
+      tags: [Attachments]
+      operationId: getUploadURL
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filename:
+                  type: string
+                mime_type:
+                  type: string
+                size:
+                  type: integer
+              required: [filename]
+      responses:
+        '200':
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload_url:
+                    type: string
+                  storage_key:
+                    type: string
+                  expires_in:
+                    type: integer
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}/attachments/{attachmentID}:
+    delete:
+      tags: [Attachments]
+      operationId: deleteAttachment
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+        - $ref: '#/components/parameters/attachmentID'
+      responses:
+        '204':
+          description: Deleted
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}/history:
+    get:
+      tags: [Issues]
+      operationId: getIssueHistory
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      responses:
+        '200':
+          description: Issue history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IssueHistory'
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      operationId: listNotifications
+      responses:
+        '200':
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+
+  /notifications/{notificationID}/read:
+    post:
+      tags: [Notifications]
+      operationId: markNotificationRead
+      parameters:
+        - name: notificationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Marked read
+
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      operationId: markAllNotificationsRead
+      responses:
+        '204':
+          description: All marked read
+

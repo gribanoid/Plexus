@@ -1,0 +1,8 @@
+# Override for local development: remove the API and Web containers
+# so you can run them natively with hot reload.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.override.yml up
+services:
+  api:
+    profiles: ["full"]
+  web:
+    profiles: ["full"]

@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/renderer/*"],
+      "@plexus/ui": ["../../packages/ui/src"],
+      "@plexus/features": ["../../packages/features/src"]
+    }
+  },
+  "include": ["src/renderer/**/*"]
+}

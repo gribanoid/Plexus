@@ -1,0 +1,292 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		821415DCD71A8E42F8CC3E17 /* PlexusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FF07FCFEDBD30AE25B4132 /* PlexusApp.swift */; };
+		901A362C1A68618E8457B21E /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69327A297681897DDC8F5099 /* MainTabView.swift */; };
+		849FB1BC2956FC6A450475FB /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A0B434220D1F10C541039D /* RootView.swift */; };
+		E3A4D6BB0ACC986F5E0DCFFC /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBD4E386CC32C5C2B6FB4EAA /* LoginView.swift */; };
+		E757696B190C59ECE7A95634 /* RegisterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37E1B58991594236A31FBE1 /* RegisterView.swift */; };
+		DDDA427ACE4D30E23668EB9E /* BacklogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFB196F8989D92446E232293 /* BacklogView.swift */; };
+		38F4F8333CE01210853B1475 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFE3DF1468CF310C6A3B49B6 /* BoardView.swift */; };
+		B1E4440ABC4762C9821F1205 /* CreateIssueSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E26BC4EB9104307064BF65BD /* CreateIssueSheet.swift */; };
+		F2A8C3D19E4B7A2056D8E901 /* EditIssueSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D2E5F48C1B9034D6A7F812 /* EditIssueSheet.swift */; };
+		1C83D228C158B5F1370B8DC7 /* IssueDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E16E2D5CB850A0CA2536E0C /* IssueDetailView.swift */; };
+		64BADAC9EA6A4CA1AC7E7719 /* CreateProjectSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A9F8322350A85E1134E962C /* CreateProjectSheet.swift */; };
+		0FB0CB7D063949F9C92B6FCF /* CreateWorkspaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A54D3EA133AF2EDABD816E9 /* CreateWorkspaceSheet.swift */; };
+		5F4B10473764765689030420 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905BD444B8B2A420D54BE544 /* Models.swift */; };
+		6E9417EAC676A85CC04FCC01 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547E46155DEFE9C1220C62DB /* APIClient.swift */; };
+		3063F6432B80963DC818E41F /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903C874326503D321BB93A73 /* AuthStore.swift */; };
+		9EAB94F0FE30F5E8D8D43DFD /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03FB6C3A51D20160813E69C0 /* KeychainStore.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		5954D2F54A137169D367F63E /* Plexus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Plexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A63C6DEEC14E3B994F91B4F0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		35FF07FCFEDBD30AE25B4132 /* PlexusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/PlexusApp.swift; sourceTree = "<group>"; };
+		69327A297681897DDC8F5099 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/MainTabView.swift; sourceTree = "<group>"; };
+		C4A0B434220D1F10C541039D /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/RootView.swift; sourceTree = "<group>"; };
+		CBD4E386CC32C5C2B6FB4EAA /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Auth/LoginView.swift; sourceTree = "<group>"; };
+		F37E1B58991594236A31FBE1 /* RegisterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Auth/RegisterView.swift; sourceTree = "<group>"; };
+		CFB196F8989D92446E232293 /* BacklogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Backlog/BacklogView.swift; sourceTree = "<group>"; };
+		DFE3DF1468CF310C6A3B49B6 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Board/BoardView.swift; sourceTree = "<group>"; };
+		E26BC4EB9104307064BF65BD /* CreateIssueSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Issues/CreateIssueSheet.swift; sourceTree = "<group>"; };
+		A7D2E5F48C1B9034D6A7F812 /* EditIssueSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Issues/EditIssueSheet.swift; sourceTree = "<group>"; };
+		4E16E2D5CB850A0CA2536E0C /* IssueDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Issues/IssueDetailView.swift; sourceTree = "<group>"; };
+		6A9F8322350A85E1134E962C /* CreateProjectSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Projects/CreateProjectSheet.swift; sourceTree = "<group>"; };
+		8A54D3EA133AF2EDABD816E9 /* CreateWorkspaceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Workspace/CreateWorkspaceSheet.swift; sourceTree = "<group>"; };
+		905BD444B8B2A420D54BE544 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/Models/Models.swift; sourceTree = "<group>"; };
+		547E46155DEFE9C1220C62DB /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/Network/APIClient.swift; sourceTree = "<group>"; };
+		903C874326503D321BB93A73 /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/Stores/AuthStore.swift; sourceTree = "<group>"; };
+		03FB6C3A51D20160813E69C0 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/Stores/KeychainStore.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+
+		E9C45BF45766F8CA806C7C33 = {
+			isa = PBXGroup;
+			children = (
+				2A47124D3B5192EC18FFF33D /* Plexus */,
+				3E44AA2914B32AD347F77416 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		3E44AA2914B32AD347F77416 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5954D2F54A137169D367F63E /* Plexus.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2A47124D3B5192EC18FFF33D /* Plexus */ = {
+			isa = PBXGroup;
+			children = (
+				A63C6DEEC14E3B994F91B4F0 /* Info.plist */,
+				35FF07FCFEDBD30AE25B4132 /* PlexusApp.swift */,
+				69327A297681897DDC8F5099 /* MainTabView.swift */,
+				C4A0B434220D1F10C541039D /* RootView.swift */,
+				CBD4E386CC32C5C2B6FB4EAA /* LoginView.swift */,
+				F37E1B58991594236A31FBE1 /* RegisterView.swift */,
+				CFB196F8989D92446E232293 /* BacklogView.swift */,
+				DFE3DF1468CF310C6A3B49B6 /* BoardView.swift */,
+				E26BC4EB9104307064BF65BD /* CreateIssueSheet.swift */,
+				A7D2E5F48C1B9034D6A7F812 /* EditIssueSheet.swift */,
+				4E16E2D5CB850A0CA2536E0C /* IssueDetailView.swift */,
+				6A9F8322350A85E1134E962C /* CreateProjectSheet.swift */,
+				8A54D3EA133AF2EDABD816E9 /* CreateWorkspaceSheet.swift */,
+				905BD444B8B2A420D54BE544 /* Models.swift */,
+				547E46155DEFE9C1220C62DB /* APIClient.swift */,
+				903C874326503D321BB93A73 /* AuthStore.swift */,
+				03FB6C3A51D20160813E69C0 /* KeychainStore.swift */,
+			);
+			path = .;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		63AF26D8C6C40AB74A7EF5F0 /* Plexus */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 787906E4E16C5049971ED0DF /* Build configuration list for PBXNativeTarget "Plexus" */;
+			buildPhases = (
+				A7BD62E1822032BAB2F47A76 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Plexus;
+			productName = Plexus;
+			productReference = 5954D2F54A137169D367F63E /* Plexus.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4E54ED7FD3148DFD88EA1167 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					63AF26D8C6C40AB74A7EF5F0 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 5A45CBF001F153232C3C8AA3 /* Build configuration list for PBXProject "Plexus" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E9C45BF45766F8CA806C7C33;
+			productRefGroup = 3E44AA2914B32AD347F77416 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				63AF26D8C6C40AB74A7EF5F0 /* Plexus */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A7BD62E1822032BAB2F47A76 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				821415DCD71A8E42F8CC3E17 /* PlexusApp.swift in Sources */,
+				901A362C1A68618E8457B21E /* MainTabView.swift in Sources */,
+				849FB1BC2956FC6A450475FB /* RootView.swift in Sources */,
+				E3A4D6BB0ACC986F5E0DCFFC /* LoginView.swift in Sources */,
+				E757696B190C59ECE7A95634 /* RegisterView.swift in Sources */,
+				DDDA427ACE4D30E23668EB9E /* BacklogView.swift in Sources */,
+				38F4F8333CE01210853B1475 /* BoardView.swift in Sources */,
+				B1E4440ABC4762C9821F1205 /* CreateIssueSheet.swift in Sources */,
+				F2A8C3D19E4B7A2056D8E901 /* EditIssueSheet.swift in Sources */,
+				1C83D228C158B5F1370B8DC7 /* IssueDetailView.swift in Sources */,
+				64BADAC9EA6A4CA1AC7E7719 /* CreateProjectSheet.swift in Sources */,
+				0FB0CB7D063949F9C92B6FCF /* CreateWorkspaceSheet.swift in Sources */,
+				5F4B10473764765689030420 /* Models.swift in Sources */,
+				6E9417EAC676A85CC04FCC01 /* APIClient.swift in Sources */,
+				3063F6432B80963DC818E41F /* AuthStore.swift in Sources */,
+				9EAB94F0FE30F5E8D8D43DFD /* KeychainStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		839C6B91AA9473E9EF01907F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		CE6AACBECE41EF18E2477065 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		95B98D1AEFFA32793EC88589 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.plexus;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EEC2E0A15F9E07CD912C6282 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.plexus;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5A45CBF001F153232C3C8AA3 /* Build configuration list for PBXProject "Plexus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				839C6B91AA9473E9EF01907F /* Debug */,
+				CE6AACBECE41EF18E2477065 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		787906E4E16C5049971ED0DF /* Build configuration list for PBXNativeTarget "Plexus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95B98D1AEFFA32793EC88589 /* Debug */,
+				EEC2E0A15F9E07CD912C6282 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4E54ED7FD3148DFD88EA1167 /* Project object */;
+}
