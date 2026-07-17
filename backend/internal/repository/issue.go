@@ -19,7 +19,8 @@ func (r *Repo) ListIssues(ctx context.Context, userID uuid.UUID, orgSlug, projec
 		Join("projects p ON p.id = i.project_id").
 		Join("organizations o ON o.id = p.org_id").
 		Join("org_members om ON om.org_id = o.id").
-		Where(sq.Eq{"om.user_id": userID, "o.slug": orgSlug, "p.key": projectKey})
+		Where(sq.Eq{"om.user_id": userID, "o.slug": orgSlug, "p.key": projectKey}).
+		Where("i.deleted_at IS NULL")
 
 	if filters.StatusID != "" {
 		q = q.Where(sq.Eq{"i.status_id": filters.StatusID})
@@ -109,6 +110,89 @@ func (r *Repo) FirstTodoStatusID(ctx context.Context, projectID uuid.UUID) (uuid
 	return id, err
 }
 
+func (r *Repo) FirstIssueTypeID(ctx context.Context, projectID uuid.UUID) (uuid.UUID, error) {
+	sql, args, err := psql.Select("id").
+		From("issue_types").
+		Where(sq.Eq{"project_id": projectID}).
+		OrderBy("name ASC").
+		Limit(1).
+		ToSql()
+	if err != nil {
+		return uuid.Nil, err
+	}
+	var id uuid.UUID
+	err = r.pool.QueryRow(ctx, sql, args...).Scan(&id)
+	return id, err
+}
+
+func (r *Repo) ListChildIssues(ctx context.Context, userID uuid.UUID, orgSlug, projectKey string, parentID uuid.UUID) ([]IssueListDBO, error) {
+	sql, args, err := psql.Select(
+		"i.id", "i.number", "i.title", "i.priority", "i.story_points", "i.due_date", "i.position",
+		"i.status_id", "i.type_id", "i.assignee_id", "i.reporter_id", "i.sprint_id",
+		"i.created_at", "i.updated_at",
+	).
+		From("issues i").
+		Join("projects p ON p.id = i.project_id").
+		Join("organizations o ON o.id = p.org_id").
+		Join("org_members om ON om.org_id = o.id").
+		Where(sq.Eq{"om.user_id": userID, "o.slug": orgSlug, "p.key": projectKey, "i.parent_id": parentID}).
+		Where("i.deleted_at IS NULL").
+		OrderBy("i.number ASC").
+		ToSql()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var issues []IssueListDBO
+	for rows.Next() {
+		var i IssueListDBO
+		if err := rows.Scan(
+			&i.ID, &i.Number, &i.Title, &i.Priority, &i.StoryPoints, &i.DueDate, &i.Position,
+			&i.StatusID, &i.TypeID, &i.AssigneeID, &i.ReporterID, &i.SprintID,
+			&i.CreatedAt, &i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		issues = append(issues, i)
+	}
+	return issues, rows.Err()
+}
+
+func (r *Repo) ProjectIssueSummary(ctx context.Context, userID uuid.UUID, orgSlug, projectKey string) (map[string]any, error) {
+	projectID, err := r.ResolveProjectID(ctx, userID, orgSlug, projectKey)
+	if err != nil {
+		return nil, err
+	}
+	const q = `
+SELECT
+  COUNT(*) FILTER (WHERE i.deleted_at IS NULL) AS total,
+  COUNT(*) FILTER (WHERE i.deleted_at IS NULL AND s.category = 'todo') AS todo,
+  COUNT(*) FILTER (WHERE i.deleted_at IS NULL AND s.category = 'in_progress') AS in_progress,
+  COUNT(*) FILTER (WHERE i.deleted_at IS NULL AND s.category = 'done') AS done,
+  COALESCE(SUM(i.story_points) FILTER (WHERE i.deleted_at IS NULL AND s.category = 'done'), 0) AS completed_points,
+  COALESCE(SUM(i.story_points) FILTER (WHERE i.deleted_at IS NULL), 0) AS total_points
+FROM issues i
+JOIN statuses s ON s.id = i.status_id
+WHERE i.project_id = $1`
+	var total, todo, inProgress, done int
+	var completedPoints, totalPoints float64
+	if err := r.pool.QueryRow(ctx, q, projectID).Scan(&total, &todo, &inProgress, &done, &completedPoints, &totalPoints); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"total":             total,
+		"todo":              todo,
+		"in_progress":       inProgress,
+		"done":              done,
+		"completed_points":  completedPoints,
+		"total_points":      totalPoints,
+	}, nil
+}
+
 func (r *Repo) NextIssueNumber(ctx context.Context, projectID uuid.UUID) (int64, error) {
 	sql, args, err := psql.Select("COALESCE(MAX(number), 0) + 1").
 		From("issues").
@@ -189,6 +273,7 @@ func (r *Repo) GetIssue(ctx context.Context, userID uuid.UUID, orgSlug, projectK
 		LeftJoin("users assignee ON assignee.id = i.assignee_id").
 		LeftJoin("users reporter ON reporter.id = i.reporter_id").
 		Where(sq.Eq{"om.user_id": userID, "o.slug": orgSlug, "p.key": projectKey, "i.number": issueNumber}).
+		Where("i.deleted_at IS NULL").
 		ToSql()
 	if err != nil {
 		return nil, err
@@ -215,6 +300,7 @@ func (r *Repo) ResolveIssue(ctx context.Context, userID uuid.UUID, orgSlug, proj
 		Join("organizations o ON o.id = p.org_id").
 		Join("org_members om ON om.org_id = o.id").
 		Where(sq.Eq{"om.user_id": userID, "o.slug": orgSlug, "p.key": projectKey, "i.number": issueNumber}).
+		Where("i.deleted_at IS NULL").
 		ToSql()
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
@@ -247,6 +333,9 @@ func (r *Repo) UpdateIssue(ctx context.Context, issueID uuid.UUID, in UpdateIssu
 	}
 	if in.SprintID != nil {
 		q = q.Set("sprint_id", *in.SprintID)
+	}
+	if in.ClearSprint {
+		q = q.Set("sprint_id", nil)
 	}
 	if in.ParentID != nil {
 		q = q.Set("parent_id", *in.ParentID)

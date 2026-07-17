@@ -3,7 +3,10 @@ package jobs
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/plexus/backend/internal/repository"
+	"github.com/plexus/backend/internal/safehttp"
 	"github.com/plexus/backend/internal/search"
 )
 
@@ -21,6 +25,7 @@ const (
 	TaskSendNotificationEmail = "notification:email"
 	TaskIndexIssue            = "search:index_issue"
 	TaskDeleteIssueIndex      = "search:delete_issue"
+	TaskDeliverWebhook        = "webhook:deliver"
 )
 
 // EmailPayload is the task payload for email notifications.
@@ -36,6 +41,13 @@ type IndexIssuePayload struct {
 	ProjectID string `json:"project_id"`
 	Title     string `json:"title"`
 	Body      string `json:"body"`
+}
+
+// WebhookPayload is enqueued for outbound delivery. Secret is loaded from DB by the worker.
+type WebhookPayload struct {
+	WebhookID string          `json:"webhook_id"`
+	Event     string          `json:"event"`
+	Body      json.RawMessage `json:"body"`
 }
 
 type Server struct {
@@ -70,6 +82,7 @@ func NewServer(redisURL string, searchClient *search.Client, repo *repository.Re
 	mux.HandleFunc(TaskSendNotificationEmail, handleEmailTask)
 	mux.HandleFunc(TaskIndexIssue, s.handleIndexIssueTask)
 	mux.HandleFunc(TaskDeleteIssueIndex, s.handleDeleteIssueTask)
+	mux.HandleFunc(TaskDeliverWebhook, s.handleWebhookDeliverTask)
 
 	s.mux = mux
 	return s
@@ -185,3 +198,47 @@ func nullStringVal(s sql.NullString) string {
 	}
 	return ""
 }
+
+func (s *Server) handleWebhookDeliverTask(ctx context.Context, t *asynq.Task) error {
+	var p WebhookPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return err
+	}
+	webhookID, err := uuid.Parse(p.WebhookID)
+	if err != nil {
+		return err
+	}
+	wh, err := s.repo.GetWebhookByID(ctx, webhookID)
+	if err != nil {
+		return err
+	}
+	if !wh.Active {
+		return nil
+	}
+	if err := safehttp.ValidateWebhookURL(wh.URL); err != nil {
+		return fmt.Errorf("webhook url blocked: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, wh.URL, bytes.NewReader(p.Body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Plexus-Event", p.Event)
+	req.Header.Set("X-Plexus-Delivery", uuid.New().String())
+	if wh.Secret != "" {
+		mac := hmac.New(sha256.New, []byte(wh.Secret))
+		_, _ = mac.Write(p.Body)
+		req.Header.Set("X-Plexus-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+	}
+	resp, err := safehttp.NewWebhookClient().Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return fmt.Errorf("webhook delivery failed %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+

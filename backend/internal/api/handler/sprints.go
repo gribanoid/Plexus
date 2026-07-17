@@ -54,6 +54,10 @@ func (h *Handler) CreateSprint(c *fiber.Ctx) error {
 }
 
 func (h *Handler) UpdateSprint(c *fiber.Ctx) error {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
 	sprintID, err := uuid.Parse(c.Params("sprintID"))
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid sprint id")
@@ -69,7 +73,15 @@ func (h *Handler) UpdateSprint(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	if err := h.Repo.UpdateSprint(c.Context(), sprintID, body.Name, body.Goal, body.StartDate, body.EndDate); err != nil {
+	projectID, err := h.Repo.ResolveProjectID(c.Context(), userID, c.Params("orgSlug"), c.Params("projectKey"))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "project not found")
+		}
+		return err
+	}
+
+	if err := h.Repo.UpdateSprint(c.Context(), sprintID, projectID, body.Name, body.Goal, body.StartDate, body.EndDate); err != nil {
 		return err
 	}
 	return c.SendStatus(fiber.StatusNoContent)

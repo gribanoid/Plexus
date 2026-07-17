@@ -48,8 +48,8 @@ func (r *Repo) CreateSprint(ctx context.Context, id, projectID uuid.UUID, name s
 	return err
 }
 
-func (r *Repo) UpdateSprint(ctx context.Context, sprintID uuid.UUID, name, goal *string, startDate, endDate interface{}) error {
-	q := psql.Update("sprints").Where(sq.Eq{"id": sprintID})
+func (r *Repo) UpdateSprint(ctx context.Context, sprintID, projectID uuid.UUID, name, goal *string, startDate, endDate interface{}) error {
+	q := psql.Update("sprints").Where(sq.Eq{"id": sprintID, "project_id": projectID})
 	if name != nil {
 		q = q.Set("name", *name)
 	}

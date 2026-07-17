@@ -27,6 +27,7 @@ type OrgMemberDTO struct {
 
 type ProjectDTO struct {
 	ID          uuid.UUID  `json:"id"`
+	OrgID       uuid.UUID  `json:"org_id"`
 	Key         string     `json:"key"`
 	Name        string     `json:"name"`
 	Description *string    `json:"description"`

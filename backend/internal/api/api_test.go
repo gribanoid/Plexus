@@ -55,8 +55,12 @@ func TestMain(m *testing.M) {
 	rdb := redis.NewClient(opt)
 	defer rdb.Close()
 
-	cfg := config.Load()
-	cfg.JWTSecret = "test-jwt-secret"
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config: %v\n", err)
+		os.Exit(1)
+	}
+	cfg.JWTSecret = "test-jwt-secret-at-least-32-characters!!"
 	cfg.Env = "test"
 
 	testApp = api.New(api.Dependencies{

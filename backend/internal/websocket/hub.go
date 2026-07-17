@@ -112,10 +112,13 @@ func (h *Hub) deliverLocal(event *Event, data []byte) {
 	defer h.mu.RUnlock()
 
 	for client := range h.clients {
-		// Scope: send to clients in the same project, or direct user notification
-		if event.ProjectID != nil && client.ProjectID != nil && *event.ProjectID != *client.ProjectID {
-			continue
+		// Project-scoped events must only reach clients subscribed to that project.
+		if event.ProjectID != nil {
+			if client.ProjectID == nil || *event.ProjectID != *client.ProjectID {
+				continue
+			}
 		}
+		// User-targeted events (e.g. notifications) require matching user.
 		if event.UserID != nil && client.UserID != *event.UserID {
 			continue
 		}

@@ -22,7 +22,7 @@
     },
     "generate:api-client": {
       "cache": false,
-      "inputs": ["../../backend/openapi.yaml"]
+      "inputs": ["../backend/openapi.yaml"]
     }
   }
 }

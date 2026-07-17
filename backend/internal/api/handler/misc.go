@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -59,8 +60,16 @@ func (h *Handler) GetUploadURL(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil || body.Filename == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "filename is required")
 	}
+	const maxUploadBytes int64 = 50 * 1024 * 1024
+	if body.Size <= 0 || body.Size > maxUploadBytes {
+		return fiber.NewError(fiber.StatusBadRequest, "size must be between 1 and 52428800 bytes")
+	}
+	safeName := filepath.Base(strings.ReplaceAll(body.Filename, "\\", "/"))
+	if safeName == "" || safeName == "." || safeName == ".." {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid filename")
+	}
 
-	storageKey := fmt.Sprintf("uploads/%s/%s/%s", userID, uuid.New(), body.Filename)
+	storageKey := fmt.Sprintf("uploads/%s/%s/%s", userID, uuid.New(), safeName)
 
 	s3Client, err := h.s3Client(c.Context())
 	if err != nil {
@@ -207,8 +216,35 @@ func (h *Handler) Search(c *fiber.Ctx) error {
 	var projectID string
 	if projectKey != "" {
 		id, err := h.Repo.GetProjectIDByOrgAndKey(c.Context(), userID, orgSlug, projectKey)
-		if err == nil {
-			projectID = id.String()
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fiber.NewError(fiber.StatusNotFound, "project not found")
+			}
+			return err
+		}
+		ok, accessErr := h.Repo.UserHasProjectAccess(c.Context(), userID, id)
+		if accessErr != nil {
+			return accessErr
+		}
+		if !ok {
+			return fiber.NewError(fiber.StatusForbidden, "access denied to project")
+		}
+		projectID = id.String()
+	} else {
+		// Org-wide search is limited to projects the user can access.
+		ids, err := h.Repo.ListAccessibleProjectIDs(c.Context(), userID, orgSlug)
+		if err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			return c.JSON(fiber.Map{"items": []interface{}{}, "total": 0})
+		}
+		// Meilisearch client filters by a single project; search each and merge is heavy —
+		// require project filter for now when multi-project.
+		if len(ids) == 1 {
+			projectID = ids[0].String()
+		} else {
+			return fiber.NewError(fiber.StatusBadRequest, "project query parameter is required")
 		}
 	}
 
@@ -237,26 +273,26 @@ func (h *Handler) WebSocketUpgrade(c *fiber.Ctx) error {
 	}
 
 	projectIDStr := c.Query("project_id")
-	var projectID *uuid.UUID
-	if projectIDStr != "" {
-		id, parseErr := uuid.Parse(projectIDStr)
-		if parseErr != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "invalid project_id")
-		}
-		ok, accessErr := h.Repo.UserHasProjectAccess(c.Context(), userID, id)
-		if accessErr != nil {
-			return accessErr
-		}
-		if !ok {
-			return fiber.NewError(fiber.StatusForbidden, "access denied to project")
-		}
-		projectID = &id
+	if projectIDStr == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "project_id is required")
 	}
+	id, parseErr := uuid.Parse(projectIDStr)
+	if parseErr != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid project_id")
+	}
+	ok, accessErr := h.Repo.UserHasProjectAccess(c.Context(), userID, id)
+	if accessErr != nil {
+		return accessErr
+	}
+	if !ok {
+		return fiber.NewError(fiber.StatusForbidden, "access denied to project")
+	}
+	projectID := id
 
 	return fiberws.New(func(conn *fiberws.Conn) {
 		client := &websocket.Client{
 			UserID:    userID,
-			ProjectID: projectID,
+			ProjectID: &projectID,
 			Send:      make(chan []byte, 256),
 		}
 		h.Hub.Register(client)

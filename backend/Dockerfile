@@ -10,7 +10,9 @@ RUN go mod download
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-s -w" -o /plexus-server ./cmd/server
+    go build -ldflags="-s -w" -o /plexus-server ./cmd/server && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o /plexus-worker ./cmd/worker
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM alpine:3.22 AS runtime
@@ -20,6 +22,7 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 
 COPY --from=builder /plexus-server .
+COPY --from=builder /plexus-worker .
 COPY migrations/ migrations/
 
 EXPOSE 8080

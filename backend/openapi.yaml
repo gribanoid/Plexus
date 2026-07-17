@@ -1765,3 +1765,246 @@ paths:
         '204':
           description: All marked read
 
+  # ── Platform extensions (workflows, links, versions, webhooks, …) ───────────
+
+  /orgs/{orgSlug}/api-keys:
+    get:
+      tags: [API Keys]
+      operationId: listAPIKeys
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      responses:
+        '200':
+          description: Org API keys (secrets redacted)
+    post:
+      tags: [API Keys]
+      operationId: createAPIKey
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      responses:
+        '201':
+          description: Created (returns raw key once)
+
+  /orgs/{orgSlug}/audit:
+    get:
+      tags: [Audit]
+      operationId: listAuditEvents
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      responses:
+        '200':
+          description: Audit events
+
+  /orgs/{orgSlug}/webhooks:
+    get:
+      tags: [Webhooks]
+      operationId: listWebhooks
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      responses:
+        '200':
+          description: Outbound webhooks
+    post:
+      tags: [Webhooks]
+      operationId: createWebhook
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/permission-schemes:
+    get:
+      tags: [Permissions]
+      operationId: listPermissionSchemes
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      responses:
+        '200':
+          description: Permission schemes
+    post:
+      tags: [Permissions]
+      operationId: createPermissionScheme
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/workflow-transitions:
+    get:
+      tags: [Workflow]
+      operationId: listWorkflowTransitions
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Allowed status transitions
+    post:
+      tags: [Workflow]
+      operationId: createWorkflowTransition
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/saved-filters:
+    get:
+      tags: [Filters]
+      operationId: listSavedFilters
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Saved filters
+    post:
+      tags: [Filters]
+      operationId: createSavedFilter
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/versions:
+    get:
+      tags: [Versions]
+      operationId: listVersions
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Versions / releases
+    post:
+      tags: [Versions]
+      operationId: createVersion
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/components:
+    get:
+      tags: [Components]
+      operationId: listComponents
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Components
+    post:
+      tags: [Components]
+      operationId: createComponent
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/automation-rules:
+    get:
+      tags: [Automation]
+      operationId: listAutomationRules
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Automation rules
+    post:
+      tags: [Automation]
+      operationId: createAutomationRule
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/reports/summary:
+    get:
+      tags: [Reports]
+      operationId: projectReportSummary
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Issue counts and story points by status category
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/bulk:
+    post:
+      tags: [Issues]
+      operationId: bulkUpdateIssues
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '200':
+          description: Bulk update result
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/import:
+    post:
+      tags: [Issues]
+      operationId: importIssuesCSV
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+      responses:
+        '201':
+          description: CSV import result
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}/links:
+    get:
+      tags: [Issues]
+      operationId: listIssueLinks
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      responses:
+        '200':
+          description: Issue links
+    post:
+      tags: [Issues]
+      operationId: createIssueLink
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      responses:
+        '201':
+          description: Created
+
+  /orgs/{orgSlug}/projects/{projectKey}/issues/{issueNumber}/watchers:
+    get:
+      tags: [Issues]
+      operationId: listWatchers
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      responses:
+        '200':
+          description: Watchers
+    post:
+      tags: [Issues]
+      operationId: addWatcher
+      parameters:
+        - $ref: '#/components/parameters/orgSlug'
+        - $ref: '#/components/parameters/projectKey'
+        - $ref: '#/components/parameters/issueNumber'
+      responses:
+        '201':
+          description: Added
+

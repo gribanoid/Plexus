@@ -7,7 +7,7 @@ import {
   useMarkAllNotificationsRead,
 } from '@plexus/api'
 
-export function NotificationsPanel() {
+export function NotificationsPanel({ variant = 'default' }: { variant?: 'default' | 'topbar' }) {
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -31,14 +31,14 @@ export function NotificationsPanel() {
     if (!read) markRead.mutate(id)
   }
 
+  const buttonClass =
+    variant === 'topbar'
+      ? 'relative flex h-8 w-8 items-center justify-center rounded text-white/80 hover:bg-white/10 hover:text-white'
+      : 'relative flex h-8 w-8 items-center justify-center rounded text-plexus-text-subtle hover:bg-black/5 hover:text-plexus-text dark:hover:bg-white/5'
+
   return (
     <div ref={panelRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="relative flex h-8 w-8 items-center justify-center rounded text-white/80 hover:bg-white/10 hover:text-white"
-        title="Notifications"
-      >
+      <button type="button" onClick={() => setOpen((v) => !v)} className={buttonClass} title="Notifications">
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#DE350B] px-1 text-[10px] font-bold text-white">

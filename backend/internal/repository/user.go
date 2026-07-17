@@ -107,6 +107,21 @@ func (r *Repo) DeleteRefreshToken(ctx context.Context, tokenHash string) error {
 	return err
 }
 
+// ConsumeRefreshToken atomically deletes a refresh token and returns the owning user.
+func (r *Repo) ConsumeRefreshToken(ctx context.Context, tokenHash string) (uuid.UUID, string, error) {
+	const q = `
+		DELETE FROM refresh_tokens rt
+		USING users u
+		WHERE rt.token_hash = $1
+		  AND rt.expires_at > NOW()
+		  AND u.id = rt.user_id
+		RETURNING u.id, u.email`
+	var userID uuid.UUID
+	var email string
+	err := r.pool.QueryRow(ctx, q, tokenHash).Scan(&userID, &email)
+	return userID, email, err
+}
+
 func (r *Repo) InsertRefreshToken(ctx context.Context, id, userID uuid.UUID, tokenHash string, expiresAt time.Time) error {
 	sql, args, err := psql.Insert("refresh_tokens").
 		Columns("id", "user_id", "token_hash", "expires_at").

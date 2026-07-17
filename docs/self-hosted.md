@@ -2,10 +2,12 @@
 
 Plexus is designed to run on your own infrastructure. This guide covers a minimal production deployment.
 
+Architecture: **modular monolith** — see [architecture.md](architecture.md), [ADR 001](adr/001-modular-monolith.md), and [ha-reference.md](ha-reference.md) for HA sizing. Integrations: [integrations.md](integrations.md).
+
 ## Requirements
 
 - Docker (or PostgreSQL 16+, Redis 7+, Meilisearch 1.x, S3-compatible storage)
-- Go 1.25+ (to build the API server) or a pre-built `plexus-server` binary
+- Go 1.25+ (to build the API server) or pre-built `plexus-server` / `plexus-worker` binaries
 - Node.js 20+ (to build the web app) or a pre-built Next.js output
 
 ## Quick deploy with Docker Compose
@@ -15,6 +17,7 @@ Plexus is designed to run on your own infrastructure. This guide covers a minima
    - `MEILISEARCH_URL`, `MEILISEARCH_API_KEY`
    - `S3_*` variables for attachments
    - `FRONTEND_URL` and `CORS_ORIGINS` (your web app URL)
+   - Optional: `RUN_WORKERS=false` on API replicas when running dedicated `plexus-worker`
 
 2. Start infrastructure:
 
@@ -28,8 +31,12 @@ make migrate
 ```bash
 make build-backend
 make build-web
-./dist/plexus-server   # API on :8080
-npm run start --workspace=apps/web   # Web on :3000
+./dist/plexus-server   # API on :8080 (embeds workers by default)
+# Optional dedicated worker:
+# RUN_WORKERS=false ./dist/plexus-server &
+# ./dist/plexus-worker
+npm run start --workspace=web   # Web on :3000
+# or: make -C web start
 ```
 
 4. Create the first user via `POST /api/v1/auth/register` or enable OIDC in `.env`.

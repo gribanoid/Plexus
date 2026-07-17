@@ -185,16 +185,13 @@ func DisplayNameFromClaims(claims map[string]any, email string) string {
 	return "User"
 }
 
-// CallbackRedirectURL builds the frontend OAuth callback URL with issued tokens.
-func (p *Provider) CallbackRedirectURL(accessToken, refreshToken string) string {
-	base := p.Config.FrontendURL
+// CallbackRedirectURL returns the frontend OAuth callback path (without tokens).
+func (p *Provider) CallbackRedirectURL() string {
+	base := strings.TrimRight(p.Config.FrontendURL, "/")
 	if base == "" {
 		base = "http://localhost:3000"
 	}
-	q := url.Values{}
-	q.Set("access_token", accessToken)
-	q.Set("refresh_token", refreshToken)
-	return base + "/auth/callback?" + q.Encode()
+	return base + "/auth/callback"
 }
 
 // NewState generates a cryptographically random OAuth state value.

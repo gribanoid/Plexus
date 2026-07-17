@@ -1,0 +1,13 @@
+## Android SDK path (required by Gradle).
+## Copy to local.properties and adjust if needed:
+##   cp local.properties.example local.properties
+##
+## macOS (Android Studio default):
+# sdk.dir=/Users/YOU/Library/Android/sdk
+##
+## Linux:
+# sdk.dir=/home/YOU/Android/Sdk
+##
+## Or set ANDROID_HOME and run: make deps-android
+
+sdk.dir=/Users/REPLACE_ME/Library/Android/sdk

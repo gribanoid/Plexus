@@ -182,6 +182,10 @@ func (h *Handler) CreateStatus(c *fiber.Ctx) error {
 }
 
 func (h *Handler) UpdateStatus(c *fiber.Ctx) error {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
 	statusID, err := uuid.Parse(c.Params("statusID"))
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid status id")
@@ -195,18 +199,36 @@ func (h *Handler) UpdateStatus(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
-	if err := h.Repo.UpdateStatus(c.Context(), statusID, body.Name, body.Color, body.Category, body.Position); err != nil {
+	projectID, err := h.Repo.ResolveProjectID(c.Context(), userID, c.Params("orgSlug"), c.Params("projectKey"))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "project not found")
+		}
+		return err
+	}
+	if err := h.Repo.UpdateStatus(c.Context(), statusID, projectID, body.Name, body.Color, body.Category, body.Position); err != nil {
 		return err
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
 func (h *Handler) DeleteStatus(c *fiber.Ctx) error {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
 	statusID, err := uuid.Parse(c.Params("statusID"))
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid status id")
 	}
-	if err := h.Repo.DeleteStatus(c.Context(), statusID); err != nil {
+	projectID, err := h.Repo.ResolveProjectID(c.Context(), userID, c.Params("orgSlug"), c.Params("projectKey"))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "project not found")
+		}
+		return err
+	}
+	if err := h.Repo.DeleteStatus(c.Context(), statusID, projectID); err != nil {
 		return err
 	}
 	return c.SendStatus(fiber.StatusNoContent)
@@ -287,6 +309,57 @@ func (h *Handler) CreateLabel(c *fiber.Ctx) error {
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"id": id})
+}
+
+func (h *Handler) UpdateLabel(c *fiber.Ctx) error {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
+	labelID, err := uuid.Parse(c.Params("labelID"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid label id")
+	}
+	var body struct {
+		Name  *string `json:"name"`
+		Color *string `json:"color"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	projectID, err := h.Repo.ResolveProjectID(c.Context(), userID, c.Params("orgSlug"), c.Params("projectKey"))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "project not found")
+		}
+		return err
+	}
+	if err := h.Repo.UpdateLabel(c.Context(), labelID, projectID, body.Name, body.Color); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handler) DeleteLabel(c *fiber.Ctx) error {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
+	labelID, err := uuid.Parse(c.Params("labelID"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid label id")
+	}
+	projectID, err := h.Repo.ResolveProjectID(c.Context(), userID, c.Params("orgSlug"), c.Params("projectKey"))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "project not found")
+		}
+		return err
+	}
+	if err := h.Repo.DeleteLabel(c.Context(), labelID, projectID); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 func orDefault(s, def string) string {

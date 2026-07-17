@@ -37,6 +37,7 @@ type OrgMemberDBO struct {
 
 type ProjectDBO struct {
 	ID          uuid.UUID
+	OrgID       uuid.UUID
 	Key         string
 	Name        string
 	Description sql.NullString
@@ -230,6 +231,7 @@ type UpdateIssueInput struct {
 	Priority    *string
 	AssigneeID  *uuid.UUID
 	SprintID    *uuid.UUID
+	ClearSprint bool
 	ParentID    *uuid.UUID
 	StoryPoints *float32
 	DueDate     *time.Time

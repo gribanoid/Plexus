@@ -17,6 +17,8 @@ import (
 	"github.com/plexus/backend/internal/middleware"
 	"github.com/plexus/backend/internal/repository"
 	"github.com/plexus/backend/internal/search"
+	"github.com/plexus/backend/internal/service/authz"
+	"github.com/plexus/backend/internal/service/workflow"
 	"github.com/plexus/backend/internal/websocket"
 	"github.com/redis/go-redis/v9"
 )
@@ -38,7 +40,6 @@ func New(deps Dependencies) *fiber.App {
 		DisableStartupMessage: !deps.Config.IsDevelopment(),
 	})
 
-	// Global middleware
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	app.Use(recover.New())
 	app.Use(middleware.StructuredLogging())
@@ -56,7 +57,6 @@ func New(deps Dependencies) *fiber.App {
 		AllowCredentials: true,
 	}))
 
-	// Health checks
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok", "service": "plexus"})
 	})
@@ -64,11 +64,19 @@ func New(deps Dependencies) *fiber.App {
 		Pool:  deps.Pool,
 		Redis: deps.Redis,
 	}))
+	app.Get("/metrics", handler.Metrics)
 
 	repo := repository.New(deps.Pool)
+	authzSvc := authz.New(repo)
+	workflowSvc := workflow.New(repo)
+
 	orgMember := middleware.RequireOrgMember(repo)
 	orgAdmin := middleware.RequireOrgRole("owner", "admin")
-	canWrite := middleware.RequireOrgRole("owner", "admin", "member")
+	canWriteOrg := middleware.RequireOrgRole("owner", "admin", "member")
+
+	projRead := middleware.RequireProjectRead(authzSvc)
+	projWrite := middleware.RequireProjectWrite(authzSvc)
+	projAdmin := middleware.RequireProjectAdmin(authzSvc)
 
 	h := handler.New(handler.Deps{
 		Repo:        repo,
@@ -76,6 +84,8 @@ func New(deps Dependencies) *fiber.App {
 		Search:      deps.SearchClient,
 		Hub:         deps.Hub,
 		JobClient:   deps.JobClient,
+		Authz:       authzSvc,
+		Workflow:    workflowSvc,
 		JWTSecret:   deps.Config.JWTSecret,
 		FrontendURL: deps.Config.FrontendURL,
 		S3Config: handler.S3Config{
@@ -88,24 +98,23 @@ func New(deps Dependencies) *fiber.App {
 		OIDC: auth.LoadOIDCFromEnv(),
 	})
 
-	// Public routes (no auth required)
-	auth := app.Group("/api/v1/auth")
-	auth.Post("/register", h.Register)
-	auth.Post("/login", middleware.RateLimitByIP(deps.Redis, "auth:login", 10, time.Minute), h.Login)
-	auth.Post("/refresh", h.RefreshToken)
-	auth.Post("/logout", h.Logout)
-	auth.Get("/oidc/login", h.OIDCLogin)
-	auth.Get("/oidc/callback", h.OIDCCallback)
+	authGroup := app.Group("/api/v1/auth")
+	authGroup.Post("/register", middleware.RateLimitByIP(deps.Redis, "auth:register", 5, time.Minute), h.Register)
+	authGroup.Post("/login", middleware.RateLimitByIP(deps.Redis, "auth:login", 10, time.Minute), h.Login)
+	authGroup.Post("/refresh", middleware.RateLimitByIP(deps.Redis, "auth:refresh", 30, time.Minute), h.RefreshToken)
+	authGroup.Post("/logout", h.Logout)
+	authGroup.Get("/oidc/login", h.OIDCLogin)
+	authGroup.Get("/oidc/callback", h.OIDCCallback)
+	authGroup.Post("/oidc/exchange", middleware.RateLimitByIP(deps.Redis, "auth:oidc-exchange", 20, time.Minute), h.OIDCExchange)
+	authGroup.Get("/saml/metadata", h.SAMLMetadata)
+	authGroup.Post("/saml/acs", h.SAMLACS)
 
-	// Authenticated routes
-	api := app.Group("/api/v1", middleware.AuthOrAPIKey(deps.Config.JWTSecret, repo))
+	apiGroup := app.Group("/api/v1", middleware.AuthOrAPIKey(deps.Config.JWTSecret, repo))
 
-	// Current user
-	api.Get("/me", h.GetMe)
-	api.Patch("/me", h.UpdateMe)
+	apiGroup.Get("/me", h.GetMe)
+	apiGroup.Patch("/me", h.UpdateMe)
 
-	// Organizations
-	orgs := api.Group("/orgs")
+	orgs := apiGroup.Group("/orgs")
 	orgs.Post("/", h.CreateOrg)
 	orgs.Get("/", h.ListMyOrgs)
 
@@ -116,71 +125,122 @@ func New(deps Dependencies) *fiber.App {
 	orgScoped.Post("/members/invite", orgAdmin, h.InviteMember)
 	orgScoped.Delete("/members/:userID", orgAdmin, h.RemoveMember)
 	orgScoped.Get("/search", h.Search)
+	orgScoped.Get("/audit", orgAdmin, h.ListAuditEvents)
 
-	// Projects
+	orgScoped.Get("/api-keys", orgAdmin, h.ListAPIKeys)
+	orgScoped.Post("/api-keys", orgAdmin, h.CreateAPIKey)
+	orgScoped.Delete("/api-keys/:keyID", orgAdmin, h.RevokeAPIKey)
+
+	orgScoped.Get("/webhooks", orgAdmin, h.ListWebhooks)
+	orgScoped.Post("/webhooks", orgAdmin, h.CreateWebhook)
+	orgScoped.Patch("/webhooks/:webhookID", orgAdmin, h.UpdateWebhook)
+	orgScoped.Delete("/webhooks/:webhookID", orgAdmin, h.DeleteWebhook)
+
+	orgScoped.Get("/permission-schemes", orgAdmin, h.ListPermissionSchemes)
+	orgScoped.Post("/permission-schemes", orgAdmin, h.CreatePermissionScheme)
+	orgScoped.Patch("/permission-schemes/:schemeID", orgAdmin, h.UpdatePermissionScheme)
+
 	projects := orgScoped.Group("/projects")
-	projects.Post("/", canWrite, h.CreateProject)
+	projects.Post("/", canWriteOrg, h.CreateProject)
 	projects.Get("/", h.ListProjects)
-	projects.Get("/:projectKey", h.GetProject)
-	projects.Patch("/:projectKey", canWrite, h.UpdateProject)
-	projects.Delete("/:projectKey", orgAdmin, h.DeleteProject)
 
-	projects.Get("/:projectKey/members", h.ListProjectMembers)
-	projects.Post("/:projectKey/members", canWrite, h.AddProjectMember)
-	projects.Delete("/:projectKey/members/:userID", canWrite, h.RemoveProjectMember)
+	pk := projects.Group("/:projectKey", projRead)
+	pk.Get("/", h.GetProject)
+	pk.Patch("/", projAdmin, h.UpdateProject)
+	pk.Delete("/", orgAdmin, h.DeleteProject)
+	pk.Patch("/permission-scheme", projAdmin, h.AssignPermissionScheme)
 
-	// Statuses & issue types (board config)
-	projects.Get("/:projectKey/statuses", h.ListStatuses)
-	projects.Post("/:projectKey/statuses", canWrite, h.CreateStatus)
-	projects.Patch("/:projectKey/statuses/:statusID", canWrite, h.UpdateStatus)
-	projects.Delete("/:projectKey/statuses/:statusID", canWrite, h.DeleteStatus)
+	pk.Get("/members", h.ListProjectMembers)
+	pk.Post("/members", projAdmin, h.AddProjectMember)
+	pk.Delete("/members/:userID", projAdmin, h.RemoveProjectMember)
 
-	projects.Get("/:projectKey/issue-types", h.ListIssueTypes)
-	projects.Post("/:projectKey/issue-types", canWrite, h.CreateIssueType)
+	pk.Get("/statuses", h.ListStatuses)
+	pk.Post("/statuses", projAdmin, h.CreateStatus)
+	pk.Patch("/statuses/:statusID", projAdmin, h.UpdateStatus)
+	pk.Delete("/statuses/:statusID", projAdmin, h.DeleteStatus)
 
-	projects.Get("/:projectKey/labels", h.ListLabels)
-	projects.Post("/:projectKey/labels", canWrite, h.CreateLabel)
+	pk.Get("/issue-types", h.ListIssueTypes)
+	pk.Post("/issue-types", projAdmin, h.CreateIssueType)
 
-	projects.Get("/:projectKey/custom-fields", h.ListCustomFields)
-	projects.Post("/:projectKey/custom-fields", canWrite, h.CreateCustomField)
+	pk.Get("/labels", h.ListLabels)
+	pk.Post("/labels", projWrite, h.CreateLabel)
+	pk.Patch("/labels/:labelID", projWrite, h.UpdateLabel)
+	pk.Delete("/labels/:labelID", projWrite, h.DeleteLabel)
 
-	// Sprints
-	projects.Get("/:projectKey/sprints", h.ListSprints)
-	projects.Post("/:projectKey/sprints", canWrite, h.CreateSprint)
-	projects.Patch("/:projectKey/sprints/:sprintID", canWrite, h.UpdateSprint)
-	projects.Post("/:projectKey/sprints/:sprintID/start", canWrite, h.StartSprint)
-	projects.Post("/:projectKey/sprints/:sprintID/complete", canWrite, h.CompleteSprint)
+	pk.Get("/custom-fields", h.ListCustomFields)
+	pk.Post("/custom-fields", projAdmin, h.CreateCustomField)
+	pk.Patch("/custom-fields/:fieldID", projAdmin, h.UpdateCustomField)
+	pk.Delete("/custom-fields/:fieldID", projAdmin, h.DeleteCustomField)
 
-	// Issues
-	issues := projects.Group("/:projectKey/issues")
-	issues.Post("/", canWrite, h.CreateIssue)
+	pk.Get("/workflow-transitions", h.ListWorkflowTransitions)
+	pk.Post("/workflow-transitions", projAdmin, h.CreateWorkflowTransition)
+	pk.Delete("/workflow-transitions/:transitionID", projAdmin, h.DeleteWorkflowTransition)
+
+	pk.Get("/saved-filters", h.ListSavedFilters)
+	pk.Post("/saved-filters", projWrite, h.CreateSavedFilter)
+	pk.Patch("/saved-filters/:filterID", projWrite, h.UpdateSavedFilter)
+	pk.Delete("/saved-filters/:filterID", projWrite, h.DeleteSavedFilter)
+
+	pk.Get("/versions", h.ListVersions)
+	pk.Post("/versions", projAdmin, h.CreateVersion)
+	pk.Patch("/versions/:versionID", projAdmin, h.UpdateVersion)
+	pk.Delete("/versions/:versionID", projAdmin, h.DeleteVersion)
+
+	pk.Get("/components", h.ListComponents)
+	pk.Post("/components", projAdmin, h.CreateComponent)
+	pk.Delete("/components/:componentID", projAdmin, h.DeleteComponent)
+
+	pk.Get("/automation-rules", projAdmin, h.ListAutomationRules)
+	pk.Post("/automation-rules", projAdmin, h.CreateAutomationRule)
+	pk.Patch("/automation-rules/:ruleID", projAdmin, h.UpdateAutomationRule)
+	pk.Delete("/automation-rules/:ruleID", projAdmin, h.DeleteAutomationRule)
+
+	pk.Get("/reports/summary", h.ProjectReportSummary)
+	pk.Get("/epics/:issueNumber/children", h.ListEpicChildren)
+	pk.Post("/issues/bulk", projWrite, h.BulkUpdateIssues)
+	pk.Post("/issues/import", projAdmin, h.ImportIssuesCSV)
+
+	pk.Get("/sprints", h.ListSprints)
+	pk.Post("/sprints", projWrite, h.CreateSprint)
+	pk.Patch("/sprints/:sprintID", projWrite, h.UpdateSprint)
+	pk.Post("/sprints/:sprintID/start", projWrite, h.StartSprint)
+	pk.Post("/sprints/:sprintID/complete", projWrite, h.CompleteSprint)
+
+	issues := pk.Group("/issues")
+	issues.Post("/", projWrite, h.CreateIssue)
 	issues.Get("/", h.ListIssues)
 	issues.Get("/:issueNumber", h.GetIssue)
-	issues.Patch("/:issueNumber", canWrite, h.UpdateIssue)
-	issues.Delete("/:issueNumber", canWrite, h.DeleteIssue)
-	issues.Post("/:issueNumber/move", canWrite, h.MoveIssue)
+	issues.Patch("/:issueNumber", projWrite, h.UpdateIssue)
+	issues.Delete("/:issueNumber", projWrite, h.SoftDeleteIssue)
+	issues.Post("/:issueNumber/restore", projAdmin, h.RestoreIssue)
+	issues.Post("/:issueNumber/move", projWrite, h.MoveIssue)
 
-	// Comments
 	issues.Get("/:issueNumber/comments", h.ListComments)
-	issues.Post("/:issueNumber/comments", canWrite, h.CreateComment)
-	issues.Patch("/:issueNumber/comments/:commentID", canWrite, h.UpdateComment)
-	issues.Delete("/:issueNumber/comments/:commentID", canWrite, h.DeleteComment)
+	issues.Post("/:issueNumber/comments", projWrite, h.CreateComment)
+	issues.Patch("/:issueNumber/comments/:commentID", projWrite, h.UpdateComment)
+	issues.Delete("/:issueNumber/comments/:commentID", projWrite, h.DeleteComment)
 
-	// Attachments
 	issues.Get("/:issueNumber/attachments", h.ListAttachments)
-	issues.Post("/:issueNumber/attachments/upload-url", canWrite, h.GetUploadURL)
-	issues.Post("/:issueNumber/attachments", canWrite, h.CreateAttachment)
-	issues.Delete("/:issueNumber/attachments/:attachmentID", canWrite, h.DeleteAttachment)
+	issues.Post("/:issueNumber/attachments/upload-url", projWrite, h.GetUploadURL)
+	issues.Post("/:issueNumber/attachments", projWrite, h.CreateAttachment)
+	issues.Delete("/:issueNumber/attachments/:attachmentID", projWrite, h.DeleteAttachment)
 
-	// Issue history
 	issues.Get("/:issueNumber/history", h.GetIssueHistory)
+	issues.Get("/:issueNumber/links", h.ListIssueLinks)
+	issues.Post("/:issueNumber/links", projWrite, h.CreateIssueLink)
+	issues.Delete("/:issueNumber/links/:linkID", projWrite, h.DeleteIssueLink)
 
-	// Notifications
-	api.Get("/notifications", h.ListNotifications)
-	api.Post("/notifications/:notificationID/read", h.MarkNotificationRead)
-	api.Post("/notifications/read-all", h.MarkAllNotificationsRead)
+	issues.Get("/:issueNumber/watchers", h.ListWatchers)
+	issues.Post("/:issueNumber/watchers", projWrite, h.AddWatcher)
+	issues.Delete("/:issueNumber/watchers/:userID", projWrite, h.RemoveWatcher)
 
-	// WebSocket endpoint — JWT validated in handler via ?token=
+	issues.Put("/:issueNumber/versions", projWrite, h.SetIssueVersions)
+	issues.Put("/:issueNumber/components", projWrite, h.SetIssueComponents)
+
+	apiGroup.Get("/notifications", h.ListNotifications)
+	apiGroup.Post("/notifications/:notificationID/read", h.MarkNotificationRead)
+	apiGroup.Post("/notifications/read-all", h.MarkAllNotificationsRead)
+
 	app.Get("/ws", h.WebSocketUpgrade)
 
 	return app

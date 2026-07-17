@@ -2,7 +2,8 @@ package repository
 
 import (
 	"context"
-	"fmt"
+	"crypto/rand"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -226,15 +227,28 @@ func (r *Repo) OrgSlugExists(ctx context.Context, slug string) (bool, error) {
 	return true, nil
 }
 
+const orgSlugRandomLen = 6
+
+// UniqueOrgSlug returns base-<random> so display names like "Plexus Dev" never collide with seed/other orgs.
 func (r *Repo) UniqueOrgSlug(ctx context.Context, base string) (string, error) {
+	base = strings.Trim(strings.ToLower(base), "-")
 	if base == "" {
 		base = "workspace"
 	}
-	if len(base) < 3 {
-		base = base + "-ws"
+	if len(base) < 2 {
+		base = base + "ws"
 	}
-	candidate := base
-	for i := 0; i < 20; i++ {
+	// slug max 40: leave room for "-" + random suffix
+	maxBase := 40 - 1 - orgSlugRandomLen
+	if len(base) > maxBase {
+		base = strings.Trim(base[:maxBase], "-")
+	}
+	if len(base) < 2 {
+		base = "ws"
+	}
+
+	for i := 0; i < 24; i++ {
+		candidate := base + "-" + randomSlugSuffix(orgSlugRandomLen)
 		exists, err := r.OrgSlugExists(ctx, candidate)
 		if err != nil {
 			return "", err
@@ -242,7 +256,19 @@ func (r *Repo) UniqueOrgSlug(ctx context.Context, base string) (string, error) {
 		if !exists {
 			return candidate, nil
 		}
-		candidate = fmt.Sprintf("%s-%d", base, i+1)
 	}
 	return base + "-" + uuid.New().String()[:8], nil
+}
+
+func randomSlugSuffix(n int) string {
+	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		// Extremely unlikely; fall back to uuid slice.
+		return uuid.New().String()[:n]
+	}
+	for i := range b {
+		b[i] = alphabet[int(b[i])%len(alphabet)]
+	}
+	return string(b)
 }

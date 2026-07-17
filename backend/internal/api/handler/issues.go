@@ -141,6 +141,15 @@ func (h *Handler) CreateIssue(c *fiber.Ctx) error {
 		},
 	})
 
+	if orgID, err := h.Repo.GetOrgIDForMember(c.Context(), userID, orgSlug); err == nil {
+		h.enqueueOrgWebhooks(c.Context(), orgID, "issue.created", map[string]any{
+			"project_id": projectID.String(),
+			"issue_id":   issueID.String(),
+			"number":     nextNumber,
+			"title":      body.Title,
+		})
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"id":     issueID,
 		"number": nextNumber,
@@ -375,6 +384,12 @@ func (h *Handler) MoveIssue(c *fiber.Ctx) error {
 		return err
 	}
 
+	if body.StatusID != nil && h.Workflow != nil {
+		if err := h.Workflow.AllowMove(c.Context(), projectID, issue.TypeID, issue.StatusID, *body.StatusID); err != nil {
+			return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
+		}
+	}
+
 	moveInput := repository.MoveIssueInput{
 		StatusID: body.StatusID,
 		Position: body.Position,
@@ -395,6 +410,40 @@ func (h *Handler) MoveIssue(c *fiber.Ctx) error {
 		ProjectID: &projectID,
 		Payload:   fiber.Map{"id": issueID, "moved": true},
 	})
+
+	if body.StatusID != nil && *body.StatusID != issue.StatusID {
+		title := fmt.Sprintf("Status changed on %s-%d", c.Params("projectKey"), issueNumber)
+		if issue.AssigneeID.Valid {
+			h.createNotification(c.Context(), repository.CreateNotificationInput{
+				ID:      uuid.New(),
+				UserID:  issue.AssigneeID.V,
+				Type:    "status_changed",
+				Title:   title,
+				IssueID: &issueID,
+			})
+		}
+		watchers, _ := h.Repo.ListWatchers(c.Context(), issueID)
+		for _, w := range watchers {
+			if issue.AssigneeID.Valid && w.UserID == issue.AssigneeID.V {
+				continue
+			}
+			h.createNotification(c.Context(), repository.CreateNotificationInput{
+				ID:      uuid.New(),
+				UserID:  w.UserID,
+				Type:    "status_changed",
+				Title:   title,
+				IssueID: &issueID,
+			})
+		}
+	}
+
+	if orgID, err := h.Repo.GetOrgIDForMember(c.Context(), userID, c.Params("orgSlug")); err == nil {
+		h.enqueueOrgWebhooks(c.Context(), orgID, "issue.updated", map[string]any{
+			"project_id": projectID.String(),
+			"issue_id":   issueID.String(),
+			"moved":      true,
+		})
+	}
 
 	return c.SendStatus(fiber.StatusNoContent)
 }

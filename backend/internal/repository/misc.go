@@ -146,6 +146,7 @@ func (r *Repo) GetIssueID(ctx context.Context, userID uuid.UUID, orgSlug, projec
 		Join("organizations o ON o.id = p.org_id").
 		Join("org_members om ON om.org_id = o.id").
 		Where(sq.Eq{"om.user_id": userID, "o.slug": orgSlug, "p.key": projectKey, "i.number": issueNumber}).
+		Where("i.deleted_at IS NULL").
 		ToSql()
 	if err != nil {
 		return uuid.Nil, err
@@ -153,6 +154,20 @@ func (r *Repo) GetIssueID(ctx context.Context, userID uuid.UUID, orgSlug, projec
 	var id uuid.UUID
 	err = r.pool.QueryRow(ctx, sql, args...).Scan(&id)
 	return id, err
+}
+
+func (r *Repo) GetIssueProjectID(ctx context.Context, issueID uuid.UUID) (uuid.UUID, error) {
+	sql, args, err := psql.Select("project_id").
+		From("issues").
+		Where(sq.Eq{"id": issueID}).
+		Where("deleted_at IS NULL").
+		ToSql()
+	if err != nil {
+		return uuid.Nil, err
+	}
+	var projectID uuid.UUID
+	err = r.pool.QueryRow(ctx, sql, args...).Scan(&projectID)
+	return projectID, err
 }
 
 func (r *Repo) CreateAttachment(ctx context.Context, id, issueID, uploaderID uuid.UUID, filename, mimeType, storageKey string, size int64) error {

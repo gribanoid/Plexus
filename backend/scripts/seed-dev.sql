@@ -25,9 +25,10 @@ BEGIN
     )
     ON CONFLICT (email) DO NOTHING;
 
+    -- Display name "Plexus Dev"; slug "plexus-dev" (not bare "plexus") so users can create a workspace named Plexus.
     INSERT INTO organizations (id, slug, name, plan)
-    VALUES (v_org_id, 'plexus', 'Plexus Dev', 'free')
-    ON CONFLICT (slug) DO NOTHING;
+    VALUES (v_org_id, 'plexus-dev', 'Plexus Dev', 'free')
+    ON CONFLICT (id) DO UPDATE SET slug = 'plexus-dev', name = EXCLUDED.name;
 
     INSERT INTO org_members (org_id, user_id, role)
     VALUES (v_org_id, v_user_id, 'owner')

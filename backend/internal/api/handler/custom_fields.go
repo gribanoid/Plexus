@@ -73,6 +73,59 @@ func (h *Handler) CreateCustomField(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"id": id})
 }
 
+func (h *Handler) UpdateCustomField(c *fiber.Ctx) error {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
+	fieldID, err := uuid.Parse(c.Params("fieldID"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid field id")
+	}
+	var body struct {
+		Name     *string  `json:"name"`
+		Required *bool    `json:"required"`
+		Options  []string `json:"options"`
+		Position *int     `json:"position"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	projectID, err := h.Repo.ResolveProjectID(c.Context(), userID, c.Params("orgSlug"), c.Params("projectKey"))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "project not found")
+		}
+		return err
+	}
+	if err := h.Repo.UpdateCustomField(c.Context(), fieldID, projectID, body.Name, body.Required, body.Options, body.Position); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handler) DeleteCustomField(c *fiber.Ctx) error {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
+	fieldID, err := uuid.Parse(c.Params("fieldID"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid field id")
+	}
+	projectID, err := h.Repo.ResolveProjectID(c.Context(), userID, c.Params("orgSlug"), c.Params("projectKey"))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "project not found")
+		}
+		return err
+	}
+	if err := h.Repo.DeleteCustomField(c.Context(), fieldID, projectID); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 func customFieldKeyFromName(name string) string {
 	s := strings.ToLower(name)
 	s = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(s, "_")

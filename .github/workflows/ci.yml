@@ -77,7 +77,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck --workspaces --if-present
       - name: Build web
-        run: npm run build --workspace=apps/web
+        run: npm run build --workspace=web
 
   e2e:
     runs-on: ubuntu-latest
@@ -92,15 +92,15 @@ jobs:
         run: ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-        working-directory: apps/web
+        working-directory: web
       - name: Build web
-        run: npm run build --workspace=apps/web
+        run: npm run build --workspace=web
       - name: Start web server
-        run: npm run start --workspace=apps/web &
+        run: npm run start --workspace=web &
       - name: Wait for web server
         run: npx wait-on http://localhost:3000 --timeout 60000
       - name: Run Playwright smoke tests
-        run: npm run test:e2e --workspace=apps/web
+        run: npm run test:e2e --workspace=web
         env:
           CI: true
           PLAYWRIGHT_BASE_URL: http://localhost:3000
@@ -114,6 +114,6 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Build Android debug APK
-        run: cd apps/android && ./gradlew assembleDebug --no-daemon
+        run: cd apps/plexus-android && ./gradlew assembleDebug --no-daemon
         env:
           PLEXUS_API_BASE_URL: http://10.0.2.2:8080/api/v1

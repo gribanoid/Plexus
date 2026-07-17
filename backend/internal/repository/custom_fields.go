@@ -61,6 +61,41 @@ func (r *Repo) CreateCustomField(ctx context.Context, id, projectID uuid.UUID, n
 	return err
 }
 
+func (r *Repo) UpdateCustomField(ctx context.Context, fieldID, projectID uuid.UUID, name *string, required *bool, options []string, position *int) error {
+	q := psql.Update("custom_fields").Where(sq.Eq{"id": fieldID, "project_id": projectID})
+	if name != nil {
+		q = q.Set("name", *name)
+	}
+	if required != nil {
+		q = q.Set("required", *required)
+	}
+	if options != nil {
+		optionsJSON, err := json.Marshal(options)
+		if err != nil {
+			return err
+		}
+		q = q.Set("options", optionsJSON)
+	}
+	if position != nil {
+		q = q.Set("position", *position)
+	}
+	sql, args, err := q.ToSql()
+	if err != nil {
+		return err
+	}
+	_, err = r.pool.Exec(ctx, sql, args...)
+	return err
+}
+
+func (r *Repo) DeleteCustomField(ctx context.Context, fieldID, projectID uuid.UUID) error {
+	sql, args, err := psql.Delete("custom_fields").Where(sq.Eq{"id": fieldID, "project_id": projectID}).ToSql()
+	if err != nil {
+		return err
+	}
+	_, err = r.pool.Exec(ctx, sql, args...)
+	return err
+}
+
 type IssueCustomValueDBO struct {
 	FieldID  uuid.UUID
 	FieldKey string

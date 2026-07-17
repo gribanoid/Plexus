@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
 
 # Build outputs
 dist/
@@ -31,16 +30,19 @@ backend/tmp/
 .vscode/
 .idea/
 *.iml
+**/xcuserdata/
+**/*.xcuserstate
 
 # Test coverage
 coverage/
 *.out
 
-# Generated
-apps/web/src/lib/api/generated/
+# Generated / local Android
+web/src/lib/api/generated/
 packages/api-client/src/generated/
-apps/ios/PlexusClient/Network/Generated/
-apps/android/app/src/main/java/com/plexus/client/api/generated/
+apps/plexus-android/local.properties
+apps/plexus-android/.gradle/
+apps/plexus-android/app/build/
 
 # Secrets
 *.pem

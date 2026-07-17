@@ -78,13 +78,22 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(tokens)
 }
 
+func resolveLoginEmail(email string) string {
+	trimmed := strings.TrimSpace(email)
+	if strings.EqualFold(trimmed, "admin") {
+		return "admin@plexus.local"
+	}
+	return trimmed
+}
+
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var req loginRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	creds, err := h.Repo.GetUserCredentials(c.Context(), req.Email)
+	email := resolveLoginEmail(req.Email)
+	creds, err := h.Repo.GetUserCredentials(c.Context(), email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusUnauthorized, "invalid credentials")
@@ -113,15 +122,13 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 
 	tokenHash := fmt.Sprintf("%x", sha256.Sum256([]byte(body.RefreshToken)))
 
-	userID, email, err := h.Repo.GetUserByRefreshToken(c.Context(), tokenHash)
+	userID, email, err := h.Repo.ConsumeRefreshToken(c.Context(), tokenHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusUnauthorized, "invalid or expired refresh token")
 		}
 		return err
 	}
-
-	_ = h.Repo.DeleteRefreshToken(c.Context(), tokenHash)
 
 	tokens, err := h.issueTokens(c.Context(), userID, email)
 	if err != nil {

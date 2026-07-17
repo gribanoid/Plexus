@@ -71,7 +71,7 @@ func toOrgMemberDTO(d repository.OrgMemberDBO) OrgMemberDTO {
 
 func toProjectDTO(d repository.ProjectDBO) ProjectDTO {
 	return ProjectDTO{
-		ID: d.ID, Key: d.Key, Name: d.Name,
+		ID: d.ID, OrgID: d.OrgID, Key: d.Key, Name: d.Name,
 		Description: nullStringPtr(d.Description),
 		IconURL:     nullStringPtr(d.IconURL),
 		LeadID:      nullUUIDPtr(d.LeadID),

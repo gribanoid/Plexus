@@ -30,11 +30,27 @@ func (h *Handler) CreateOrg(c *fiber.Ctx) error {
 	if body.Name == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "name is required")
 	}
-	if body.Slug == "" {
+	autoSlug := body.Slug == ""
+	if autoSlug {
 		body.Slug = slugify(body.Name)
 	}
 	if !slugRegex.MatchString(body.Slug) {
 		return fiber.NewError(fiber.StatusBadRequest, "slug must be 3–40 lowercase alphanumeric characters or hyphens")
+	}
+	if autoSlug {
+		unique, err := h.Repo.UniqueOrgSlug(c.Context(), body.Slug)
+		if err != nil {
+			return err
+		}
+		body.Slug = unique
+	} else {
+		exists, err := h.Repo.OrgSlugExists(c.Context(), body.Slug)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return fiber.NewError(fiber.StatusConflict, "slug already taken")
+		}
 	}
 
 	orgID := uuid.New()
@@ -137,6 +153,17 @@ func (h *Handler) InviteMember(c *fiber.Ctx) error {
 	}
 	if body.Role == "" {
 		body.Role = "member"
+	}
+	switch body.Role {
+	case "admin", "member", "guest":
+		// ok — owner can only be granted by an existing owner
+	case "owner":
+		callerRole, _ := c.Locals(middleware.ContextKeyOrgRole).(string)
+		if callerRole != "owner" {
+			return fiber.NewError(fiber.StatusForbidden, "only owners can assign the owner role")
+		}
+	default:
+		return fiber.NewError(fiber.StatusBadRequest, "role must be owner, admin, member, or guest")
 	}
 
 	inviteeID, err := h.Repo.GetUserIDByEmail(c.Context(), body.Email)

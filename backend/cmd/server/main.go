@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"os"
 	"os/signal"
@@ -10,55 +9,39 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/plexus/backend/internal/api"
 	"github.com/plexus/backend/internal/config"
-	"github.com/plexus/backend/internal/db"
-	"github.com/plexus/backend/internal/jobs"
-	"github.com/plexus/backend/internal/repository"
-	"github.com/plexus/backend/internal/search"
-	"github.com/plexus/backend/internal/websocket"
+	"github.com/plexus/backend/internal/delivery"
 )
 
 func main() {
 	_ = godotenv.Load()
-
-	cfg := config.Load()
-
-	pool, err := db.NewPool(context.Background(), cfg.DatabaseURL)
+	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
-	}
-	defer pool.Close()
-
-	if err := db.RunMigrations(cfg.DatabaseURL); err != nil {
-		log.Fatalf("failed to run migrations: %v", err)
+		log.Fatalf("config: %v", err)
 	}
 
-	redisClient := db.NewRedis(cfg.RedisURL)
-	defer redisClient.Close()
-
-	searchClient := search.NewClient(cfg.MeilisearchURL, cfg.MeilisearchKey)
-	if err := searchClient.EnsureIndexes(context.Background()); err != nil {
-		log.Printf("meilisearch ensure indexes: %v", err)
+	rt, err := delivery.NewRuntime(cfg)
+	if err != nil {
+		log.Fatalf("runtime: %v", err)
 	}
+	defer rt.Close()
 
-	repo := repository.New(pool)
+	go rt.Hub.Run()
 
-	hub := websocket.NewHub(redisClient)
-	go hub.Run()
-
-	jobServer := jobs.NewServer(cfg.RedisURL, searchClient, repo)
-	go func() {
-		if err := jobServer.Start(); err != nil {
-			log.Printf("job server error: %v", err)
-		}
-	}()
+	if cfg.RunWorkers {
+		go func() {
+			if err := rt.JobServer.Start(); err != nil {
+				log.Printf("job server error: %v", err)
+			}
+		}()
+	}
 
 	app := api.New(api.Dependencies{
 		Config:       cfg,
-		Pool:         pool,
-		Redis:        redisClient,
-		SearchClient: searchClient,
-		Hub:          hub,
-		JobClient:    jobs.NewClient(cfg.RedisURL),
+		Pool:         rt.Pool,
+		Redis:        rt.Redis,
+		SearchClient: rt.Search,
+		Hub:          rt.Hub,
+		JobClient:    rt.JobClient,
 	})
 
 	quit := make(chan os.Signal, 1)
@@ -66,7 +49,7 @@ func main() {
 
 	go func() {
 		addr := ":" + cfg.Port
-		log.Printf("plexus server listening on %s", addr)
+		log.Printf("plexus server listening on %s (workers=%v)", addr, cfg.RunWorkers)
 		if err := app.Listen(addr); err != nil {
 			log.Fatalf("server error: %v", err)
 		}
@@ -74,7 +57,9 @@ func main() {
 
 	<-quit
 	log.Println("shutting down...")
-	jobServer.Shutdown()
+	if cfg.RunWorkers {
+		rt.JobServer.Shutdown()
+	}
 	if err := app.Shutdown(); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}

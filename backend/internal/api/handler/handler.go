@@ -5,6 +5,8 @@ import (
 	"github.com/plexus/backend/internal/auth"
 	"github.com/plexus/backend/internal/repository"
 	"github.com/plexus/backend/internal/search"
+	"github.com/plexus/backend/internal/service/authz"
+	"github.com/plexus/backend/internal/service/workflow"
 	"github.com/plexus/backend/internal/websocket"
 	"github.com/redis/go-redis/v9"
 )
@@ -25,6 +27,8 @@ type Deps struct {
 	Search       *search.Client
 	Hub          *websocket.Hub
 	JobClient    *asynq.Client
+	Authz        *authz.Service
+	Workflow     *workflow.Service
 	JWTSecret    string
 	FrontendURL  string
 	S3Config     S3Config

@@ -13,6 +13,7 @@ export interface Attachment {
 export function useAttachments(orgSlug: string, projectKey: string, issueNumber: string) {
   return useQuery({
     queryKey: ['attachments', orgSlug, projectKey, issueNumber],
+    enabled: Boolean(orgSlug && projectKey && issueNumber),
     queryFn: async () => {
       const json = await apiFetch<{ items: Attachment[] }>(
         `/orgs/${orgSlug}/projects/${projectKey}/issues/${issueNumber}/attachments`

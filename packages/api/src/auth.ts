@@ -81,7 +81,7 @@ async function publicFetch<T>(path: string, options: RequestInit = {}): Promise<
 
 export function resolveLoginEmail(input: string): string {
   const trimmed = input.trim()
-  if (trimmed === 'admin') return 'admin@plexus.local'
+  if (trimmed.toLowerCase() === 'admin') return 'admin@plexus.local'
   return trimmed
 }
 

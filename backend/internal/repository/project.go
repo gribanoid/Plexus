@@ -47,12 +47,19 @@ func (r *Repo) CreateProject(ctx context.Context, projectID, orgID, leadID uuid.
 
 func (r *Repo) ListProjects(ctx context.Context, userID uuid.UUID, orgSlug string) ([]ProjectDBO, error) {
 	sql, args, err := psql.Select(
-		"p.id", "p.key", "p.name", "p.description", "p.icon_url", "p.lead_id", "p.created_at",
+		"p.id", "p.org_id", "p.key", "p.name", "p.description", "p.icon_url", "p.lead_id", "p.created_at",
 	).
 		From("projects p").
 		Join("organizations o ON o.id = p.org_id").
 		Join("org_members om ON om.org_id = o.id").
 		Where(sq.Eq{"om.user_id": userID, "o.slug": orgSlug}).
+		Where(sq.Or{
+			sq.Eq{"om.role": []string{"owner", "admin"}},
+			sq.Expr(`EXISTS (
+				SELECT 1 FROM project_members pm
+				WHERE pm.project_id = p.id AND pm.user_id = ?
+			)`, userID),
+		}).
 		OrderBy("p.name ASC").
 		ToSql()
 	if err != nil {
@@ -68,7 +75,7 @@ func (r *Repo) ListProjects(ctx context.Context, userID uuid.UUID, orgSlug strin
 	var projects []ProjectDBO
 	for rows.Next() {
 		var p ProjectDBO
-		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Description, &p.IconURL, &p.LeadID, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.OrgID, &p.Key, &p.Name, &p.Description, &p.IconURL, &p.LeadID, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		projects = append(projects, p)
@@ -77,18 +84,25 @@ func (r *Repo) ListProjects(ctx context.Context, userID uuid.UUID, orgSlug strin
 }
 
 func (r *Repo) GetProject(ctx context.Context, userID uuid.UUID, orgSlug, projectKey string) (*ProjectDBO, error) {
-	sql, args, err := psql.Select("p.id", "p.key", "p.name", "p.description", "p.icon_url", "p.lead_id").
+	sql, args, err := psql.Select("p.id", "p.org_id", "p.key", "p.name", "p.description", "p.icon_url", "p.lead_id").
 		From("projects p").
 		Join("organizations o ON o.id = p.org_id").
 		Join("org_members om ON om.org_id = o.id").
 		Where(sq.Eq{"om.user_id": userID, "o.slug": orgSlug, "p.key": projectKey}).
+		Where(sq.Or{
+			sq.Eq{"om.role": []string{"owner", "admin"}},
+			sq.Expr(`EXISTS (
+				SELECT 1 FROM project_members pm
+				WHERE pm.project_id = p.id AND pm.user_id = ?
+			)`, userID),
+		}).
 		ToSql()
 	if err != nil {
 		return nil, err
 	}
 	var p ProjectDBO
 	err = r.pool.QueryRow(ctx, sql, args...).Scan(
-		&p.ID, &p.Key, &p.Name, &p.Description, &p.IconURL, &p.LeadID,
+		&p.ID, &p.OrgID, &p.Key, &p.Name, &p.Description, &p.IconURL, &p.LeadID,
 	)
 	if err != nil {
 		return nil, err
@@ -161,6 +175,13 @@ func (r *Repo) UserHasProjectAccess(ctx context.Context, userID, projectID uuid.
 		From("projects p").
 		Join("org_members om ON om.org_id = p.org_id").
 		Where(sq.Eq{"p.id": projectID, "om.user_id": userID}).
+		Where(sq.Or{
+			sq.Eq{"om.role": []string{"owner", "admin"}},
+			sq.Expr(`EXISTS (
+				SELECT 1 FROM project_members pm
+				WHERE pm.project_id = p.id AND pm.user_id = ?
+			)`, userID),
+		}).
 		Limit(1).
 		ToSql()
 	if err != nil {
@@ -175,6 +196,40 @@ func (r *Repo) UserHasProjectAccess(ctx context.Context, userID, projectID uuid.
 		return false, err
 	}
 	return true, nil
+}
+
+// ListAccessibleProjectIDs returns project IDs in an org the user can access.
+func (r *Repo) ListAccessibleProjectIDs(ctx context.Context, userID uuid.UUID, orgSlug string) ([]uuid.UUID, error) {
+	sqlStr, args, err := psql.Select("p.id").
+		From("projects p").
+		Join("organizations o ON o.id = p.org_id").
+		Join("org_members om ON om.org_id = o.id").
+		Where(sq.Eq{"om.user_id": userID, "o.slug": orgSlug}).
+		Where(sq.Or{
+			sq.Eq{"om.role": []string{"owner", "admin"}},
+			sq.Expr(`EXISTS (
+				SELECT 1 FROM project_members pm
+				WHERE pm.project_id = p.id AND pm.user_id = ?
+			)`, userID),
+		}).
+		ToSql()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx, sqlStr, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func (r *Repo) ListStatuses(ctx context.Context, userID uuid.UUID, orgSlug, projectKey string) ([]StatusDBO, error) {
@@ -218,8 +273,8 @@ func (r *Repo) CreateStatus(ctx context.Context, id, projectID uuid.UUID, name, 
 	return err
 }
 
-func (r *Repo) UpdateStatus(ctx context.Context, statusID uuid.UUID, name, color, category *string, position *int) error {
-	q := psql.Update("statuses").Where(sq.Eq{"id": statusID})
+func (r *Repo) UpdateStatus(ctx context.Context, statusID, projectID uuid.UUID, name, color, category *string, position *int) error {
+	q := psql.Update("statuses").Where(sq.Eq{"id": statusID, "project_id": projectID})
 	if name != nil {
 		q = q.Set("name", *name)
 	}
@@ -240,8 +295,8 @@ func (r *Repo) UpdateStatus(ctx context.Context, statusID uuid.UUID, name, color
 	return err
 }
 
-func (r *Repo) DeleteStatus(ctx context.Context, statusID uuid.UUID) error {
-	sql, args, err := psql.Delete("statuses").Where(sq.Eq{"id": statusID}).ToSql()
+func (r *Repo) DeleteStatus(ctx context.Context, statusID, projectID uuid.UUID) error {
+	sql, args, err := psql.Delete("statuses").Where(sq.Eq{"id": statusID, "project_id": projectID}).ToSql()
 	if err != nil {
 		return err
 	}
@@ -324,6 +379,31 @@ func (r *Repo) CreateLabel(ctx context.Context, id, projectID uuid.UUID, name, c
 		Columns("id", "project_id", "name", "color").
 		Values(id, projectID, name, color).
 		ToSql()
+	if err != nil {
+		return err
+	}
+	_, err = r.pool.Exec(ctx, sql, args...)
+	return err
+}
+
+func (r *Repo) UpdateLabel(ctx context.Context, labelID, projectID uuid.UUID, name, color *string) error {
+	q := psql.Update("labels").Where(sq.Eq{"id": labelID, "project_id": projectID})
+	if name != nil {
+		q = q.Set("name", *name)
+	}
+	if color != nil {
+		q = q.Set("color", *color)
+	}
+	sql, args, err := q.ToSql()
+	if err != nil {
+		return err
+	}
+	_, err = r.pool.Exec(ctx, sql, args...)
+	return err
+}
+
+func (r *Repo) DeleteLabel(ctx context.Context, labelID, projectID uuid.UUID) error {
+	sql, args, err := psql.Delete("labels").Where(sq.Eq{"id": labelID, "project_id": projectID}).ToSql()
 	if err != nil {
 		return err
 	}

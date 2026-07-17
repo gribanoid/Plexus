@@ -55,7 +55,9 @@ func AuthOrAPIKey(jwtSecret string, repo *repository.Repo) fiber.Handler {
 
 		c.Locals(ContextKeyUserID, key.CreatedBy)
 		c.Locals(ContextKeyOrgID, key.OrgID)
+		c.Locals(ContextKeyAPIKeyOrgID, key.OrgID)
 		c.Locals(ContextKeyAPIKeyID, key.ID)
+		c.Locals(ContextKeyAPIKeyScopes, key.Scopes)
 		_ = repo.TouchAPIKeyLastUsed(c.Context(), key.ID)
 
 		return c.Next()
