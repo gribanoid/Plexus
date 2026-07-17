@@ -117,8 +117,13 @@ services:
       CORS_ORIGINS: "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,app://plexus"
       ENV: development
       JWT_SECRET: dev-jwt-secret-change-in-production
+      METRICS_ENABLED: "true"
+      METRICS_LISTEN_ADDRESS: ":9090"
+      METRICS_AUTH_TOKEN: ${METRICS_AUTH_TOKEN:-dev-metrics-token}
+      LOG_LEVEL: info
     ports:
       - "8080:8080"
+      - "9090:9090"
 
   # ── Next.js web (dev) ─────────────────────────────────────────────────────────
   web:
@@ -139,8 +144,47 @@ services:
     ports:
       - "3000:3000"
 
+  # ── Observability (optional: docker compose --profile monitoring up) ─────────
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v2.55.1
+    container_name: plexus-prometheus
+    restart: unless-stopped
+    depends_on:
+      - api
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/metrics_token:/etc/prometheus/metrics_token:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9091:9090"
+
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:11.3.1
+    container_name: plexus-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+
 volumes:
   postgres_data:
   redis_data:
   meilisearch_data:
   minio_data:
+  prometheus_data:
+  grafana_data:

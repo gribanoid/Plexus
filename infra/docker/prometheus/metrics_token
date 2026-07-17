@@ -1,0 +1,3 @@
+# Token used by Prometheus to scrape plexus metrics (development only).
+# Override via METRICS_AUTH_TOKEN when running compose with monitoring profile.
+dev-metrics-token

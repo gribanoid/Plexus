@@ -2,7 +2,7 @@
 
 Enterprise project management tool — self-hosted, open source.
 
-**Architecture:** modular Go monolith (Mattermost-style), not microservices. See [docs/architecture.md](docs/architecture.md), [docs/adr/001-modular-monolith.md](docs/adr/001-modular-monolith.md), [docs/ha-reference.md](docs/ha-reference.md), and [docs/integrations.md](docs/integrations.md).
+**Architecture:** modular Go monolith, not microservices. See [docs/architecture.md](docs/architecture.md), [docs/adr/001-modular-monolith.md](docs/adr/001-modular-monolith.md), [docs/ha-reference.md](docs/ha-reference.md), and [docs/integrations.md](docs/integrations.md).
 
 Optional background worker: `plexus-worker` (same image; set `RUN_WORKERS=false` on API replicas).
 

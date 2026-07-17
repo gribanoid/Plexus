@@ -2,11 +2,12 @@ package delivery
 
 import (
 	"context"
-	"log"
+	"log/slog"
 
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/plexus/backend/internal/config"
+	"github.com/plexus/backend/internal/crypto"
 	"github.com/plexus/backend/internal/db"
 	"github.com/plexus/backend/internal/jobs"
 	"github.com/plexus/backend/internal/repository"
@@ -41,7 +42,7 @@ func NewRuntime(cfg *config.Config) (*Runtime, error) {
 	rdb := db.NewRedis(cfg.RedisURL)
 	searchClient := search.NewClient(cfg.MeilisearchURL, cfg.MeilisearchKey)
 	if err := searchClient.EnsureIndexes(context.Background()); err != nil {
-		log.Printf("meilisearch ensure indexes: %v", err)
+		slog.Warn("meilisearch ensure indexes", "error", err)
 	}
 
 	repo := repository.New(pool)
@@ -54,7 +55,7 @@ func NewRuntime(cfg *config.Config) (*Runtime, error) {
 		Search:    searchClient,
 		Repo:      repo,
 		Hub:       hub,
-		JobServer: jobs.NewServer(cfg.RedisURL, searchClient, repo),
+		JobServer: jobs.NewServer(cfg.RedisURL, searchClient, repo, crypto.KeyFromString(cfg.EncryptionKey)),
 		JobClient: jobs.NewClient(cfg.RedisURL),
 	}, nil
 }

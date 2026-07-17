@@ -39,9 +39,39 @@ npm run start --workspace=web   # Web on :3000
 # or: make -C web start
 ```
 
-4. Create the first user via `POST /api/v1/auth/register` or enable OIDC in `.env`.
+4. Create the first user via `POST /api/v1/auth/register` (requires `ALLOW_REGISTRATION=true` outside development), seed-dev in non-prod only, or enable OIDC in `.env`. Set `METRICS_AUTH_TOKEN` for production.
 
 > Do **not** run `make seed-dev` in production — it creates a known admin account.
+
+## Observability
+
+API exposes:
+
+| Endpoint | Port | Auth |
+|----------|------|------|
+| `GET /health` | `PORT` (8080) | none (liveness) |
+| `GET /health/detailed` | 8080 | `METRICS_AUTH_TOKEN` |
+| `GET /metrics` | `METRICS_LISTEN_ADDRESS` (default `:9090`) | Bearer / `X-Metrics-Token` |
+| `/debug/pprof/*` | `:9090` | same token |
+
+Example profile:
+
+```bash
+go tool pprof http://localhost:9090/debug/pprof/profile?seconds=30
+# with token:
+curl -H "Authorization: Bearer $METRICS_AUTH_TOKEN" http://localhost:9090/metrics
+```
+
+Local Prometheus + Grafana:
+
+```bash
+cd infra/docker
+docker compose --profile monitoring up -d
+# Prometheus UI: http://localhost:9091
+# Grafana: http://localhost:3001 (admin/admin) — dashboard "Plexus RED"
+```
+
+Env: `METRICS_ENABLED`, `METRICS_LISTEN_ADDRESS`, `METRICS_AUTH_TOKEN`, `LOG_LEVEL`.
 
 ## Reverse proxy
 
@@ -53,12 +83,12 @@ Place nginx or Caddy in front of both services:
 | `/ws` | WebSocket upgrade to API |
 | `/*` | Next.js (`:3000`) |
 
-Enable TLS and set `FRONTEND_URL` to your public HTTPS origin.
+Do **not** expose `:9090` (metrics/pprof) publicly; scrape from a private network or via VPN. Enable TLS and set `FRONTEND_URL` to your public HTTPS origin.
 
 ## Health checks
 
 - `GET /health` — liveness
-- `GET /health/detailed` — PostgreSQL and Redis status
+- `GET /health/detailed` — PostgreSQL and Redis status (requires metrics token outside open local auth)
 
 ## Backups
 

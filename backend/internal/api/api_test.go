@@ -62,6 +62,8 @@ func TestMain(m *testing.M) {
 	}
 	cfg.JWTSecret = "test-jwt-secret-at-least-32-characters!!"
 	cfg.Env = "test"
+	cfg.MetricsEnabled = false
+	cfg.AllowRegistration = true
 
 	testApp = api.New(api.Dependencies{
 		Config:       cfg,

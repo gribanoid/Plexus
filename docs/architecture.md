@@ -36,7 +36,7 @@ Mobile       →  Domain services (in-process)    →   Redis (cache, pub/sub, a
 3. Org `owner`/`admin` bypass project membership (full project access).
 4. Guests are read-only at org level; project `viewer` cannot write.
 
-## Scaling path (Mattermost-like)
+## Scaling path
 
 1. Single node: API embeds workers.
 2. Split: `plexus-server` (API/WS) + `plexus-worker` (jobs).

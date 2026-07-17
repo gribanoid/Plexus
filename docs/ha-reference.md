@@ -1,6 +1,6 @@
 # High availability reference architectures
 
-Plexus follows the Mattermost scaling model: **replicate the monolith**, share data stores. Kubernetes is optional, not required.
+Plexus scales by **replicating the monolith** and sharing data stores. Kubernetes is optional, not required.
 
 ## Small (≤ 50 concurrent users)
 
@@ -35,7 +35,7 @@ Compose in `infra/docker/` is sufficient.
 | Postgres | Primary + standby (failover); connection pooling (PgBouncer) |
 | Redis | Sentinel/Cluster or managed HA |
 | Search | Meilisearch HA or dedicated search tier |
-| Metrics | Prometheus scrape `/metrics` (when enabled) |
+| Metrics | Prometheus scrape `:9090/metrics` (token auth); pprof on same listen; optional `docker compose --profile monitoring` |
 | Backups | Daily DB + object storage versioning; tested restore runbook |
 
 ### WebSocket notes

@@ -22,17 +22,19 @@ type S3Config struct {
 
 // Deps contains all dependencies needed by handlers.
 type Deps struct {
-	Repo         *repository.Repo
-	Redis        *redis.Client
-	Search       *search.Client
-	Hub          *websocket.Hub
-	JobClient    *asynq.Client
-	Authz        *authz.Service
-	Workflow     *workflow.Service
-	JWTSecret    string
-	FrontendURL  string
-	S3Config     S3Config
-	OIDC         *auth.Provider
+	Repo              *repository.Repo
+	Redis             *redis.Client
+	Search            *search.Client
+	Hub               *websocket.Hub
+	JobClient         *asynq.Client
+	Authz             *authz.Service
+	Workflow          *workflow.Service
+	JWTSecret         string
+	FrontendURL       string
+	S3Config          S3Config
+	OIDC              *auth.Provider
+	AllowRegistration bool
+	EncryptionKey     []byte
 }
 
 // Handler embeds all dependencies for use in handler methods.

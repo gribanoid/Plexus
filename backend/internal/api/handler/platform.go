@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/plexus/backend/internal/crypto"
 	"github.com/plexus/backend/internal/middleware"
 	"github.com/plexus/backend/internal/safehttp"
 )
@@ -738,7 +739,11 @@ func (h *Handler) CreateWebhook(c *fiber.Ctx) error {
 		return err
 	}
 	id := uuid.New()
-	if err := h.Repo.CreateWebhook(c.Context(), id, org.ID, body.Name, body.URL, body.Secret, body.Events, &userID); err != nil {
+	encSecret, err := crypto.EncryptString(h.EncryptionKey, body.Secret)
+	if err != nil {
+		return err
+	}
+	if err := h.Repo.CreateWebhook(c.Context(), id, org.ID, body.Name, body.URL, encSecret, body.Events, &userID); err != nil {
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"id": id})
@@ -768,6 +773,14 @@ func (h *Handler) UpdateWebhook(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	}
+	var encSecret *string
+	if body.Secret != nil {
+		enc, err := crypto.EncryptString(h.EncryptionKey, *body.Secret)
+		if err != nil {
+			return err
+		}
+		encSecret = &enc
+	}
 	org, err := h.Repo.GetOrg(c.Context(), userID, c.Params("orgSlug"))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -775,7 +788,7 @@ func (h *Handler) UpdateWebhook(c *fiber.Ctx) error {
 		}
 		return err
 	}
-	if err := h.Repo.UpdateWebhook(c.Context(), webhookID, org.ID, body.Name, body.URL, body.Secret, body.Events, body.Active); err != nil {
+	if err := h.Repo.UpdateWebhook(c.Context(), webhookID, org.ID, body.Name, body.URL, encSecret, body.Events, body.Active); err != nil {
 		return err
 	}
 	return c.SendStatus(fiber.StatusNoContent)

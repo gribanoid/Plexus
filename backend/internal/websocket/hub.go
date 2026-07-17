@@ -3,10 +3,11 @@ package websocket
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/plexus/backend/internal/metrics"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -73,7 +74,9 @@ func (h *Hub) Run() {
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
+			n := len(h.clients)
 			h.mu.Unlock()
+			metrics.WSClients.Set(float64(n))
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -81,12 +84,14 @@ func (h *Hub) Run() {
 				delete(h.clients, client)
 				close(client.Send)
 			}
+			n := len(h.clients)
 			h.mu.Unlock()
+			metrics.WSClients.Set(float64(n))
 
 		case event := <-h.broadcast:
 			data, err := json.Marshal(event)
 			if err != nil {
-				log.Printf("ws hub: marshal event: %v", err)
+				slog.Error("ws hub: marshal event", "error", err)
 				continue
 			}
 			h.deliverLocal(event, data)
@@ -126,7 +131,7 @@ func (h *Hub) deliverLocal(event *Event, data []byte) {
 		case client.Send <- data:
 		default:
 			// Slow client — drop message
-			log.Printf("ws hub: slow client %s, dropping message", client.UserID)
+			slog.Warn("ws hub: slow client, dropping message", "user_id", client.UserID.String())
 		}
 	}
 }
@@ -139,7 +144,7 @@ func (h *Hub) subscribeRedis() {
 	for msg := range ch {
 		var event Event
 		if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
-			log.Printf("ws hub: unmarshal redis event: %v", err)
+			slog.Error("ws hub: unmarshal redis event", "error", err)
 			continue
 		}
 		data := []byte(msg.Payload)

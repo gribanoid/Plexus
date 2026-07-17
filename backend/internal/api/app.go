@@ -1,12 +1,11 @@
 package api
 
 import (
-	"log/slog"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/hibiken/asynq"
@@ -14,12 +13,15 @@ import (
 	"github.com/plexus/backend/internal/api/handler"
 	"github.com/plexus/backend/internal/auth"
 	"github.com/plexus/backend/internal/config"
+	"github.com/plexus/backend/internal/crypto"
+	"github.com/plexus/backend/internal/metrics"
 	"github.com/plexus/backend/internal/middleware"
 	"github.com/plexus/backend/internal/repository"
 	"github.com/plexus/backend/internal/search"
 	"github.com/plexus/backend/internal/service/authz"
 	"github.com/plexus/backend/internal/service/workflow"
 	"github.com/plexus/backend/internal/websocket"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -40,8 +42,8 @@ func New(deps Dependencies) *fiber.App {
 		DisableStartupMessage: !deps.Config.IsDevelopment(),
 	})
 
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	app.Use(recover.New())
+	app.Use(middleware.PrometheusHTTP())
 	app.Use(middleware.StructuredLogging())
 	app.Use(cors.New(cors.Config{
 		AllowOriginsFunc: func(origin string) bool {
@@ -60,11 +62,16 @@ func New(deps Dependencies) *fiber.App {
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok", "service": "plexus"})
 	})
-	app.Get("/health/detailed", handler.DetailedHealth(handler.HealthDeps{
+	metricsAuth := middleware.RequireMetricsAuth(deps.Config.MetricsAuthToken)
+	app.Get("/health/detailed", metricsAuth, handler.DetailedHealth(handler.HealthDeps{
 		Pool:  deps.Pool,
 		Redis: deps.Redis,
 	}))
-	app.Get("/metrics", handler.Metrics)
+	// Prefer dedicated metrics listen (:9090). Fallback on API port when disabled.
+	if !deps.Config.MetricsEnabled {
+		promHandler := promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{Registry: metrics.Registry})
+		app.Get("/metrics", metricsAuth, adaptor.HTTPHandler(promHandler))
+	}
 
 	repo := repository.New(deps.Pool)
 	authzSvc := authz.New(repo)
@@ -95,7 +102,9 @@ func New(deps Dependencies) *fiber.App {
 			SecretKey: deps.Config.S3SecretKey,
 			Region:    deps.Config.S3Region,
 		},
-		OIDC: auth.LoadOIDCFromEnv(),
+		OIDC:              auth.LoadOIDCFromEnv(),
+		AllowRegistration: deps.Config.AllowRegistration,
+		EncryptionKey:     crypto.KeyFromString(deps.Config.EncryptionKey),
 	})
 
 	authGroup := app.Group("/api/v1/auth")

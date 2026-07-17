@@ -10,12 +10,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/plexus/backend/internal/crypto"
+	"github.com/plexus/backend/internal/metrics"
 	"github.com/plexus/backend/internal/repository"
 	"github.com/plexus/backend/internal/safehttp"
 	"github.com/plexus/backend/internal/search"
@@ -51,13 +53,14 @@ type WebhookPayload struct {
 }
 
 type Server struct {
-	server *asynq.Server
-	mux    *asynq.ServeMux
-	search *search.Client
-	repo   *repository.Repo
+	server        *asynq.Server
+	mux           *asynq.ServeMux
+	search        *search.Client
+	repo          *repository.Repo
+	encryptionKey []byte
 }
 
-func NewServer(redisURL string, searchClient *search.Client, repo *repository.Repo) *Server {
+func NewServer(redisURL string, searchClient *search.Client, repo *repository.Repo, encryptionKey []byte) *Server {
 	opts, err := asynq.ParseRedisURI(redisURL)
 	if err != nil {
 		opts = asynq.RedisClientOpt{Addr: "localhost:6379"}
@@ -73,9 +76,10 @@ func NewServer(redisURL string, searchClient *search.Client, repo *repository.Re
 	})
 
 	s := &Server{
-		server: srv,
-		search: searchClient,
-		repo:   repo,
+		server:        srv,
+		search:        searchClient,
+		repo:          repo,
+		encryptionKey: encryptionKey,
 	}
 
 	mux := asynq.NewServeMux()
@@ -109,10 +113,11 @@ func handleEmailTask(ctx context.Context, t *asynq.Task) error {
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
 		return err
 	}
-	log.Printf("sending email to %s: %s", p.To, p.Subject)
+	slog.Info("sending email", "to", p.To, "subject", p.Subject)
 
 	apiKey := os.Getenv("RESEND_API_KEY")
 	if apiKey == "" {
+		metrics.JobsProcessed.WithLabelValues(TaskSendNotificationEmail, "skipped").Inc()
 		return nil
 	}
 
@@ -141,8 +146,10 @@ func handleEmailTask(ctx context.Context, t *asynq.Task) error {
 
 	if resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
+		metrics.JobsProcessed.WithLabelValues(TaskSendNotificationEmail, "error").Inc()
 		return fmt.Errorf("resend api error %d: %s", resp.StatusCode, string(respBody))
 	}
+	metrics.JobsProcessed.WithLabelValues(TaskSendNotificationEmail, "ok").Inc()
 	return nil
 }
 
@@ -163,32 +170,38 @@ func (s *Server) handleIndexIssueTask(ctx context.Context, t *asynq.Task) error 
 	}
 
 	doc := search.IssueDocument{
-		ID:          issue.ID.String(),
-		ProjectID:   issue.ProjectID.String(),
-		Number:      issue.Number,
-		Title:       issue.Title,
-		Description: nullStringVal(issue.Description),
-		Priority:    issue.Priority,
+		ID:           issue.ID.String(),
+		ProjectID:    issue.ProjectID.String(),
+		Number:       issue.Number,
+		Title:        issue.Title,
+		Description:  nullStringVal(issue.Description),
+		Priority:     issue.Priority,
 		AssigneeName: nullStringVal(issue.AssigneeName),
-		StatusName:  issue.StatusName,
-		CreatedAt:   issue.CreatedAt.Unix(),
+		StatusName:   issue.StatusName,
+		CreatedAt:    issue.CreatedAt.Unix(),
 	}
 	if err := s.search.IndexIssue(ctx, doc); err != nil {
+		metrics.JobsProcessed.WithLabelValues(TaskIndexIssue, "error").Inc()
 		return err
 	}
-	log.Printf("indexed issue %s", p.IssueID)
+	slog.Info("indexed issue", "issue_id", p.IssueID)
+	metrics.JobsProcessed.WithLabelValues(TaskIndexIssue, "ok").Inc()
 	return nil
 }
 
 func (s *Server) handleDeleteIssueTask(ctx context.Context, t *asynq.Task) error {
-	var p struct{ IssueID string `json:"issue_id"` }
+	var p struct {
+		IssueID string `json:"issue_id"`
+	}
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
 		return err
 	}
 	if err := s.search.DeleteIssue(ctx, p.IssueID); err != nil {
+		metrics.JobsProcessed.WithLabelValues(TaskDeleteIssueIndex, "error").Inc()
 		return err
 	}
-	log.Printf("deleted issue %s from search index", p.IssueID)
+	slog.Info("deleted issue from search index", "issue_id", p.IssueID)
+	metrics.JobsProcessed.WithLabelValues(TaskDeleteIssueIndex, "ok").Inc()
 	return nil
 }
 
@@ -225,20 +238,26 @@ func (s *Server) handleWebhookDeliverTask(ctx context.Context, t *asynq.Task) er
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Plexus-Event", p.Event)
 	req.Header.Set("X-Plexus-Delivery", uuid.New().String())
-	if wh.Secret != "" {
-		mac := hmac.New(sha256.New, []byte(wh.Secret))
+	secret, err := crypto.DecryptString(s.encryptionKey, wh.Secret)
+	if err != nil {
+		return fmt.Errorf("decrypt webhook secret: %w", err)
+	}
+	if secret != "" {
+		mac := hmac.New(sha256.New, []byte(secret))
 		_, _ = mac.Write(p.Body)
 		req.Header.Set("X-Plexus-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
 	}
 	resp, err := safehttp.NewWebhookClient().Do(req)
 	if err != nil {
+		metrics.JobsProcessed.WithLabelValues(TaskDeliverWebhook, "error").Inc()
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		metrics.JobsProcessed.WithLabelValues(TaskDeliverWebhook, "error").Inc()
 		return fmt.Errorf("webhook delivery failed %d: %s", resp.StatusCode, string(body))
 	}
+	metrics.JobsProcessed.WithLabelValues(TaskDeliverWebhook, "ok").Inc()
 	return nil
 }
-

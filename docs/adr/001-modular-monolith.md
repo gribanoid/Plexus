@@ -8,7 +8,7 @@ Accepted
 
 Plexus is a self-hosted enterprise project management product. A common early question is whether to split the Go backend into domain microservices (issues, projects, auth, search, etc.).
 
-Mattermost demonstrates that a Go modular monolith can scale to tens/hundreds of thousands of users via clustered replicas sharing Postgres, Redis/cache, and object storage — without domain service meshes.
+A Go modular monolith can scale to tens/hundreds of thousands of users via clustered replicas sharing Postgres, Redis/cache, and object storage — without domain service meshes.
 
 ## Decision
 
@@ -23,7 +23,7 @@ Mattermost demonstrates that a Go modular monolith can scale to tens/hundreds of
 
 - Simple self-host story (Compose / one binary) remains a product differentiator vs multi-service stacks.
 - Faster feature delivery for workflows, RBAC, automation.
-- Horizontal scale via stateless API replicas + shared infra (Mattermost model).
+- Horizontal scale via stateless API replicas + shared infra.
 
 ### Negative / trade-offs
 

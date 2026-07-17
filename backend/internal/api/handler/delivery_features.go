@@ -14,10 +14,11 @@ import (
 	"github.com/plexus/backend/internal/repository"
 )
 
-// Metrics exposes a minimal Prometheus text exposition for HA monitoring.
+// Metrics is retained for OpenAPI docs; scrape prefers the dedicated metrics listener.
 func Metrics(c *fiber.Ctx) error {
-	c.Set("Content-Type", "text/plain; version=0.0.4")
-	return c.SendString("# HELP plexus_up 1 if the process is serving\n# TYPE plexus_up gauge\nplexus_up 1\n")
+	return c.Status(fiber.StatusGone).JSON(fiber.Map{
+		"error": "metrics moved to METRICS_LISTEN_ADDRESS (default :9090/metrics)",
+	})
 }
 
 // SAMLMetadata returns IdP wiring instructions; native SAML is via identity broker in v1.

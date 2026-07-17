@@ -42,7 +42,7 @@ Project rules: `when` trigger + `if` conditions + `then` actions (assign, transi
 | Integration | Pattern |
 |-------------|---------|
 | GitHub / GitLab | Link MRs via issue key in branch/title; status webhook → comment |
-| Slack / Mattermost | Outbound webhook → channel notify on assign/mention |
+| Slack / chat | Outbound webhook → channel notify on assign/mention |
 | CI | API key + transition issue on deploy |
 | Import | CSV bulk endpoints |
 

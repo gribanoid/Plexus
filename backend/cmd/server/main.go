@@ -1,27 +1,34 @@
 package main
 
 import (
-	"log"
+	"context"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/plexus/backend/internal/api"
 	"github.com/plexus/backend/internal/config"
 	"github.com/plexus/backend/internal/delivery"
+	"github.com/plexus/backend/internal/logging"
+	"github.com/plexus/backend/internal/metrics"
 )
 
 func main() {
 	_ = godotenv.Load()
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		slog.Error("config", "error", err)
+		os.Exit(1)
 	}
+	logging.Configure("plexus-server", cfg.LogLevel)
 
 	rt, err := delivery.NewRuntime(cfg)
 	if err != nil {
-		log.Fatalf("runtime: %v", err)
+		slog.Error("runtime", "error", err)
+		os.Exit(1)
 	}
 	defer rt.Close()
 
@@ -30,7 +37,17 @@ func main() {
 	if cfg.RunWorkers {
 		go func() {
 			if err := rt.JobServer.Start(); err != nil {
-				log.Printf("job server error: %v", err)
+				slog.Error("job server error", "error", err)
+			}
+		}()
+	}
+
+	var metricsSrv *metrics.Server
+	if cfg.MetricsEnabled {
+		metricsSrv = metrics.NewServer(cfg.MetricsListenAddress, cfg.MetricsAuthToken)
+		go func() {
+			if err := metricsSrv.Start(); err != nil {
+				slog.Error("metrics server error", "error", err)
 			}
 		}()
 	}
@@ -49,18 +66,24 @@ func main() {
 
 	go func() {
 		addr := ":" + cfg.Port
-		log.Printf("plexus server listening on %s (workers=%v)", addr, cfg.RunWorkers)
+		slog.Info("plexus server listening", "addr", addr, "workers", cfg.RunWorkers, "metrics", cfg.MetricsEnabled)
 		if err := app.Listen(addr); err != nil {
-			log.Fatalf("server error: %v", err)
+			slog.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-quit
-	log.Println("shutting down...")
+	slog.Info("shutting down")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if metricsSrv != nil {
+		_ = metricsSrv.Shutdown(ctx)
+	}
 	if cfg.RunWorkers {
 		rt.JobServer.Shutdown()
 	}
 	if err := app.Shutdown(); err != nil {
-		log.Printf("shutdown error: %v", err)
+		slog.Error("shutdown error", "error", err)
 	}
 }

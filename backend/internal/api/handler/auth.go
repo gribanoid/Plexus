@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/plexus/backend/internal/auth"
 	"github.com/plexus/backend/internal/middleware"
 	"github.com/plexus/backend/internal/repository"
 	"golang.org/x/crypto/bcrypt"
@@ -35,6 +36,9 @@ type tokenPair struct {
 }
 
 func (h *Handler) Register(c *fiber.Ctx) error {
+	if !h.AllowRegistration {
+		return fiber.NewError(fiber.StatusForbidden, "registration is disabled")
+	}
 	var req registerRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
@@ -42,8 +46,8 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	if req.Email == "" || req.Password == "" || req.DisplayName == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "email, password and display_name are required")
 	}
-	if len(req.Password) < 8 {
-		return fiber.NewError(fiber.StatusBadRequest, "password must be at least 8 characters")
+	if err := auth.ValidatePassword(req.Password); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)

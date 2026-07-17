@@ -3,12 +3,13 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/plexus/backend/internal/jobs"
+	"github.com/plexus/backend/internal/metrics"
 )
 
 func (h *Handler) enqueueOrgWebhooks(ctx context.Context, orgID uuid.UUID, event string, data map[string]any) {
@@ -17,7 +18,7 @@ func (h *Handler) enqueueOrgWebhooks(ctx context.Context, orgID uuid.UUID, event
 	}
 	hooks, err := h.Repo.ListActiveWebhooksForEvent(ctx, orgID, event)
 	if err != nil {
-		log.Printf("list webhooks: %v", err)
+		slog.Error("list webhooks", "error", err)
 		return
 	}
 	body, err := json.Marshal(map[string]any{
@@ -37,7 +38,9 @@ func (h *Handler) enqueueOrgWebhooks(ctx context.Context, orgID uuid.UUID, event
 			Body:      body,
 		})
 		if _, err := h.JobClient.Enqueue(asynq.NewTask(jobs.TaskDeliverWebhook, payload)); err != nil {
-			log.Printf("enqueue webhook: %v", err)
+			slog.Error("enqueue webhook", "error", err)
+			continue
 		}
+		metrics.JobsEnqueued.WithLabelValues(jobs.TaskDeliverWebhook).Inc()
 	}
 }
